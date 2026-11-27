@@ -196,19 +196,18 @@ for (let exp = 1; Math.floor(max / exp) > 0; exp *= 4) {
   for (let i = n - 1; i >= 0; i--) { const v = a[i]; out[--cnt[Math.floor(v / exp) % 4]] = v; }
   for (let i = 0; i < n; i++) a[i] = out[i];
 }`,
-bogo:`// Fake bogo sort. Real bogo sort would never finish, so this
-// shuffles wildly like it, then "gets lucky" and cheats its way to sorted.
-// It works at any size and any starting order.
-const m = Array.from(a);                       // private copy so we can look things up
+bogo:`// Bogo sort: shuffle randomly until it comes out sorted
+const m = Array.from(a);
 const target = m.slice().sort((x, y) => x - y);
-for (let round = 0; round < 4; round++) {      // the unlucky shuffles
+const tries = 1 + Math.floor(Math.random() * 50);
+for (let t = 1; t < tries; t++) {              // shuffles that miss
   for (let i = n - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     swap(i, j); [m[i], m[j]] = [m[j], m[i]];
   }
 }
 const order = Array.from({ length: n }, (_, i) => i);
-for (let i = n - 1; i > 0; i--) {              // the lucky part: random order
+for (let i = n - 1; i > 0; i--) {              // the shuffle that lands
   const j = Math.floor(Math.random() * (i + 1));
   [order[i], order[j]] = [order[j], order[i]];
 }
@@ -230,7 +229,7 @@ while (i < n) {
 }`;
 
 
-const SHORT = {bubble:"Bubble",insertion:"Insertion",selection:"Selection",shell:"Shell",quick:"Quick",merge:"Merge",heap:"Heap",comb:"Comb",cocktail:"Cocktail",radix:"Radix",bogo:"Bogo (fake)",custom:"Custom"};
+const SHORT = {bubble:"Bubble",insertion:"Insertion",selection:"Selection",shell:"Shell",quick:"Quick",merge:"Merge",heap:"Heap",comb:"Comb",cocktail:"Cocktail",radix:"Radix",bogo:"Bogo",custom:"Custom"};
 const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d", {alpha:false});
 const codeEl = $("code"), errEl = $("err");
