@@ -41,7 +41,7 @@
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-9px;border-radius:50%;background:#fff;border:0}
   input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:0}
   select{width:100%;height:36px;background:var(--btn);color:#fff;border:1px solid var(--line);border-radius:8px;font:14px var(--sans);padding:0 8px}
-  .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
   details{border-top:1px solid var(--line);padding-top:10px}
   summary{cursor:pointer;color:var(--dim);font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;min-height:32px;display:flex;align-items:center}
   .help{font-size:13px;color:var(--dim);margin:8px 0 10px}
@@ -61,6 +61,7 @@
 <canvas id="cv"></canvas>
 <div class="hud"><h1 id="nowName">Bubble sort</h1><p id="stat">0 comparisons · 0 writes</p></div>
 <div class="hint" id="hint">tap to start</div>
+<input type="file" id="file" accept="image/*" hidden>
 
 <div class="dock">
   <button id="play" class="b main"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path id="playIc" d="M3 1.5v13l11-6.5z" fill="currentColor"/></svg><span id="playTx">Run</span></button>
@@ -76,15 +77,23 @@
   <div class="seg" id="view" role="group" aria-label="View">
     <button class="pad" data-v="bars" aria-pressed="true">Bars</button>
     <button class="pad" data-v="circle" aria-pressed="false">Circle</button>
+    <button class="pad" data-v="photo" aria-pressed="false">Photo</button>
   </div>
   <div class="sliders">
     <label class="sl"><span class="lab">Speed <em id="spLab"></em></span><input type="range" id="speed" min="0" max="100" value="55"></label>
     <label class="sl"><span class="lab">Count <em id="nlab">128</em></span><input type="range" id="n" min="8" max="512" value="128"></label>
     <label class="sl"><span class="lab">Volume <em id="vLab">50</em></span><input type="range" id="vol" min="0" max="100" value="50"></label>
+    <label class="sl"><span class="lab">Photo sorts by</span>
+      <select id="pmode"><option value="restore">Original order</option><option value="bright">Brightness</option></select>
+    </label>
+    <label class="sl"><span class="lab">Photo strips</span>
+      <select id="porient"><option value="cols">Columns</option><option value="rows">Rows</option></select>
+    </label>
     <label class="sl"><span class="lab">Start order</span>
       <select id="shape"><option value="shuffle">Shuffled</option><option value="reverse">Reversed</option><option value="nearly">Nearly sorted</option><option value="few">Few unique</option></select>
     </label>
   </div>
+  <button class="btn" id="upload" style="width:100%;margin-bottom:16px">Upload a photo</button>
   <details id="editor">
     <summary>Write your own algorithm</summary>
     <p class="help">Plain JavaScript. Sort array <code>a</code> in place (length <code>n</code>, values 1 to n). Reads and writes animate on their own. Helpers: <code>swap(i,j)</code> and <code>less(i,j)</code>.</p>
@@ -247,6 +256,7 @@ let customCode = store.get("sortlab.custom") || CUSTOM_DEFAULT;
 let N = 128, arr = [], base = [], ops = null, opLen = 0, opIdx = 0, playing = false, finished = false;
 let reads = 0, writes = 0, sweep = -1, algo = "bubble", view = "bars", soundOn = true, raf = 0, acc = 0, hasRun = false, frameNo = 0;
 let hi = new Int32Array(0), hiN = 0, pal = [], dark = [];
+let photo = null, photoCv = null, stripOf = new Int32Array(0);
 
 const padsEl = $("pads");
 for (const k in SHORT) {
@@ -277,6 +287,7 @@ function makeArray(){
   hi = new Int32Array(N + 8); hiN = 0;
   pal = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,50%)");
   dark = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,22%)");
+  buildMap();
   setPlayUI("Run"); $("hint").style.display = hasRun ? "none" : ""; kick(); stats(true);
 }
 function setPlayUI(t){
@@ -343,11 +354,14 @@ function note(v, len){
 let W = 0, H = 0;
 function resize(){
   const d = Math.min(devicePixelRatio || 1, 2);
-  W = cv.width = Math.round(innerWidth * d); H = cv.height = Math.round(innerHeight * d); draw();
+  W = cv.width = Math.round(innerWidth * d); H = cv.height = Math.round(innerHeight * d);
+  fitPhoto(); draw();
 }
 function draw(){
   ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
-  if (view === "bars") drawBars(); else drawCircle();
+  if (view === "bars") drawBars();
+  else if (view === "photo") drawPhoto();
+  else drawCircle();
 }
 function drawBars(){
   const n = N, bw = W / n, gap = bw > 4 ? 1 : 0, top = 0.14 * H, hmax = H - top;
@@ -361,6 +375,55 @@ function drawBars(){
     const i = hi[k], h = arr[i] / n * hmax, inset = ctx.lineWidth / 2;
     ctx.strokeStyle = dark[arr[i]];
     ctx.strokeRect(i * bw + inset, H - h + inset, Math.max(1, bw - gap - ctx.lineWidth), h - inset);
+  }
+}
+// Photo mode: the picture is cut into N strips and each array value picks which strip goes in a slot.
+function fitPhoto(){
+  if (!photo) return;
+  photoCv = document.createElement("canvas");
+  photoCv.width = W; photoCv.height = H;
+  const c = photoCv.getContext("2d");
+  const s = Math.max(W / photo.width, H / photo.height);
+  const w = photo.width * s, h = photo.height * s;
+  c.drawImage(photo, (W - w) / 2, (H - h) / 2, w, h);
+  buildMap();
+}
+function buildMap(){
+  stripOf = new Int32Array(N + 1);
+  for (let v = 1; v <= N; v++) stripOf[v] = v - 1;
+  if (!photoCv || $("pmode").value !== "bright") return;
+  const rows = $("porient").value === "rows";
+  const tiny = document.createElement("canvas");
+  tiny.width = rows ? 1 : N; tiny.height = rows ? N : 1;
+  const tc = tiny.getContext("2d");
+  tc.drawImage(photoCv, 0, 0, tiny.width, tiny.height);
+  const px = tc.getImageData(0, 0, tiny.width, tiny.height).data, lum = [];
+  for (let i = 0; i < N; i++) lum.push(0.299 * px[i*4] + 0.587 * px[i*4+1] + 0.114 * px[i*4+2]);
+  const order = lum.map((_, i) => i).sort((a, b) => lum[a] - lum[b]);
+  for (let r = 0; r < N; r++) stripOf[r + 1] = order[r];
+}
+function drawPhoto(){
+  if (!photoCv) {
+    ctx.fillStyle = "#fff"; ctx.font = "600 " + 16 * (W / 390) + "px system-ui,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Upload a photo in settings", W / 2, H / 2);
+    return;
+  }
+  const rows = $("porient").value === "rows", len = rows ? H : W, side = rows ? W : H;
+  const edge = k => Math.floor(k * len / N);
+  for (let i = 0; i < N; i++){
+    const s = stripOf[arr[i]], d0 = edge(i), dl = Math.max(1, edge(i + 1) - d0), s0 = edge(s), sl = Math.max(1, edge(s + 1) - s0);
+    if (rows) ctx.drawImage(photoCv, 0, s0, side, sl, 0, d0, side, dl);
+    else ctx.drawImage(photoCv, s0, 0, sl, side, d0, 0, dl, side);
+  }
+  if (sweep >= 0) {
+    ctx.fillStyle = "rgba(0,255,106,0.22)";
+    if (rows) ctx.fillRect(0, 0, W, edge(sweep + 1)); else ctx.fillRect(0, 0, edge(sweep + 1), H);
+  }
+  ctx.strokeStyle = "rgba(0,0,0,0.75)";
+  ctx.lineWidth = Math.max(1.5, Math.min(len / N * 0.3, 3));
+  for (let k = 0; k < hiN; k++){
+    const d0 = edge(hi[k]), dl = Math.max(1, edge(hi[k] + 1) - d0);
+    if (rows) ctx.strokeRect(1, d0 + 1, W - 2, dl - 1); else ctx.strokeRect(d0 + 1, 1, dl - 1, H - 2);
   }
 }
 function drawCircle(){
@@ -428,7 +491,31 @@ $("n").oninput = e => { N = +e.target.value; $("nlab").textContent = N; makeArra
 $("speed").oninput = speedLabel;
 $("vol").oninput = e => { $("vLab").textContent = e.target.value; if (master) master.gain.value = e.target.value / 100 * 0.5; };
 $("snd").onclick = () => { soundOn = !soundOn; $("snd").setAttribute("aria-pressed", soundOn); $("sndWave").style.display = soundOn ? "" : "none"; if (soundOn) { initAudio(); setTimeout(() => note(N * 0.6, 0.12), 30); } };
-$("view").onclick = e => { const b = e.target.closest("button"); if (!b) return; view = b.dataset.v; for (const x of $("view").children) x.setAttribute("aria-pressed", x === b); draw(); };
+function setView(v){
+  view = v;
+  for (const x of $("view").children) x.setAttribute("aria-pressed", x.dataset.v === v);
+  draw();
+}
+$("view").onclick = e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.v === "photo" && !photo) { $("file").click(); return; }
+  setView(b.dataset.v);
+};
+$("upload").onclick = () => $("file").click();
+$("file").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const img = new Image(), url = URL.createObjectURL(f);
+  img.onload = () => {
+    photo = img; URL.revokeObjectURL(url);
+    fitPhoto(); setView("photo");
+    if (!playing) makeArray();
+  };
+  img.onerror = () => { errEl.textContent = "That file couldn't be read as an image."; };
+  img.src = url;
+};
+$("pmode").onchange = $("porient").onchange = () => { buildMap(); draw(); };
 codeEl.oninput = () => { customCode = codeEl.value; store.set("sortlab.custom", customCode); };
 $("useCustom").onclick = () => { customCode = codeEl.value; store.set("sortlab.custom", customCode); setAlgo("custom"); toggle(); };
 $("reset").onclick = () => { customCode = CUSTOM_DEFAULT; codeEl.value = customCode; store.del("sortlab.custom"); };
