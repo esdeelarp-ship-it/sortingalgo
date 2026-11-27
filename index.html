@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>Sort Lab</title>
+<style>
+  :root{--bg:#0b0d12;--panel:#151922;--line:#262c3a;--fg:#e8ecf4;--dim:#8a93a6;--acc:#5b8cff;--read:#ffd24a;--write:#ff5b7a;--ok:#35d07f}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overscroll-behavior:none}
+  body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  header{display:flex;align-items:center;gap:8px;padding:10px 12px}
+  h1{font-size:17px;margin:0;flex:1}
+  .stats{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+  #stage{flex:1;min-height:180px;margin:0 12px;border-radius:12px;background:#000;overflow:hidden;position:relative}
+  canvas{width:100%;height:100%;display:block}
+  .panel{background:var(--panel);border-top:1px solid var(--line);padding:10px 12px 12px;max-height:52vh;overflow:auto}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  select,button,input[type=number]{background:#1d2330;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;min-height:44px}
+  select{flex:1;min-width:0}
+  button{cursor:pointer;font-weight:600}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff;flex:1}
+  button:active{filter:brightness(1.2)}
+  label{display:flex;flex-direction:column;gap:2px;flex:1;min-width:120px;font-size:12px;color:var(--dim)}
+  input[type=range]{width:100%;accent-color:var(--acc);height:28px}
+  textarea{width:100%;height:220px;background:#0e1118;color:#d6e2ff;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;tab-size:2}
+  #err{color:var(--write);font-size:12px;min-height:16px;white-space:pre-wrap}
+  details summary{cursor:pointer;color:var(--dim);padding:6px 0}
+  .help{font-size:12px;color:var(--dim);margin:0 0 8px}
+  .help code{color:var(--fg);background:#0e1118;padding:1px 4px;border-radius:4px}
+  .chk{flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;min-width:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sort Lab</h1>
+  <div class="stats" id="stats">0 reads · 0 writes</div>
+</header>
+<div id="stage"><canvas id="cv"></canvas></div>
+
+<div class="panel">
+  <div class="row">
+    <select id="algo" aria-label="Algorithm"></select>
+    <button id="play" class="primary">▶ Run</button>
+  </div>
+  <div class="row">
+    <label>Speed <input type="range" id="speed" min="0" max="100" value="55"></label>
+    <label>Size: <span id="nlab">64</span> <input type="range" id="n" min="8" max="512" value="64"></label>
+  </div>
+  <div class="row">
+    <select id="shape" aria-label="Initial order">
+      <option value="shuffle">Shuffled</option>
+      <option value="reverse">Reversed</option>
+      <option value="nearly">Nearly sorted</option>
+      <option value="few">Few unique</option>
+    </select>
+    <button id="shuf">Reset</button>
+    <label class="chk"><input type="checkbox" id="snd" checked> Sound</label>
+  </div>
+  <details id="editor">
+    <summary>✎ Edit / write your own algorithm</summary>
+    <p class="help">
+      Plain JavaScript. Sort the array <code>a</code> in place (length <code>n</code>, values 1..n).
+      Reads, writes and swaps are recorded and animated automatically.
+      Helpers: <code>swap(i,j)</code>, <code>less(i,j)</code> (compares a[i]&lt;a[j]).
+      Choosing “Custom” runs this code.
+    </p>
+    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="useCustom" class="primary">Use as Custom</button>
+      <button id="reset">Reset code</button>
+    </div>
+    <div id="err"></div>
+  </details>
+</div>
+
+<script>
+"use strict";
+/* ---------- Built-in algorithms (source shown/editable in the editor) ---------- */
+const ALGOS = {
+bubble:`// Bubble sort
+for (let i = 0; i < n - 1; i++) {
+  let swapped = false;
+  for (let j = 0; j < n - 1 - i; j++) {
+    if (a[j] > a[j + 1]) { swap(j, j + 1); swapped = true; }
+  }
+  if (!swapped) break;
+}`,
+insertion:`// Insertion sort
+for (let i = 1; i < n; i++) {
+  const key = a[i];
+  let j = i - 1;
+  while (j >= 0 && a[j] > key) { a[j + 1] = a[j]; j--; }
+  a[j + 1] = key;
+}`,
+selection:`// Selection sort
+for (let i = 0; i < n - 1; i++) {
+  let m = i;
+  for (let j = i + 1; j < n; j++) if (a[j] < a[m]) m = j;
+  if (m !== i) swap(i, m);
+}`,
+shell:`// Shell sort
+for (let gap = n >> 1; gap > 0; gap >>= 1) {
+  for (let i = gap; i < n; i++) {
+    const t = a[i];
+    let j = i;
+    while (j >= gap && a[j - gap] > t) { a[j] = a[j - gap]; j -= gap; }
+    a[j] = t;
+  }
+}`,
+quick:`// Quick sort (Hoare-ish, middle pivot)
+function qs(lo, hi) {
+  if (lo >= hi) return;
+  const p = a[(lo + hi) >> 1];
+  let i = lo, j = hi;
+  while (i <= j) {
+    while (a[i] < p) i++;
+    while (a[j] > p) j--;
+    if (i <= j) { swap(i, j); i++; j--; }
+  }
+  qs(lo, j); qs(i, hi);
+}
+qs(0, n - 1);`,
+merge:`// Merge sort (top-down, uses temp array)
+const tmp = new Array(n);
+function ms(lo, hi) {
+  if (hi - lo < 1) return;
+  const mid = (lo + hi) >> 1;
+  ms(lo, mid); ms(mid + 1, hi);
+  let i = lo, j = mid + 1, k = lo;
+  while (i <= mid && j <= hi) tmp[k++] = a[i] <= a[j] ? a[i++] : a[j++];
+  while (i <= mid) tmp[k++] = a[i++];
+  while (j <= hi) tmp[k++] = a[j++];
+  for (k = lo; k <= hi; k++) a[k] = tmp[k];
+}
+ms(0, n - 1);`,
+heap:`// Heap sort
+function sift(start, end) {
+  let root = start;
+  while (2 * root + 1 <= end) {
+    let c = 2 * root + 1;
+    if (c + 1 <= end && a[c] < a[c + 1]) c++;
+    if (a[root] < a[c]) { swap(root, c); root = c; } else return;
+  }
+}
+for (let s = (n >> 1) - 1; s >= 0; s--) sift(s, n - 1);
+for (let e = n - 1; e > 0; e--) { swap(0, e); sift(0, e - 1); }`,
+comb:`// Comb sort
+let gap = n, sorted = false;
+while (!sorted) {
+  gap = Math.floor(gap / 1.3);
+  if (gap <= 1) { gap = 1; sorted = true; }
+  for (let i = 0; i + gap < n; i++)
+    if (a[i] > a[i + gap]) { swap(i, i + gap); sorted = false; }
+}`,
+cocktail:`// Cocktail shaker sort
+let lo = 0, hi = n - 1, sw = true;
+while (sw) {
+  sw = false;
+  for (let i = lo; i < hi; i++) if (a[i] > a[i + 1]) { swap(i, i + 1); sw = true; }
+  hi--;
+  for (let i = hi; i > lo; i--) if (a[i] < a[i - 1]) { swap(i, i - 1); sw = true; }
+  lo++;
+}`,
+radix:`// Radix sort (LSD, base 4)
+let max = 0;
+for (let i = 0; i < n; i++) if (a[i] > max) max = a[i];
+const out = new Array(n);
+for (let exp = 1; Math.floor(max / exp) > 0; exp *= 4) {
+  const cnt = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) cnt[Math.floor(a[i] / exp) % 4]++;
+  for (let d = 1; d < 4; d++) cnt[d] += cnt[d - 1];
+  for (let i = n - 1; i >= 0; i--) { const v = a[i]; out[--cnt[Math.floor(v / exp) % 4]] = v; }
+  for (let i = 0; i < n; i++) a[i] = out[i];
+}`,
+bogo:`// Bogo-ish: random swaps until sorted (keep size small!)
+function isSorted() { for (let i = 1; i < n; i++) if (a[i-1] > a[i]) return false; return true; }
+while (!isSorted()) {
+  const i = Math.floor(Math.random() * n), j = Math.floor(Math.random() * n);
+  swap(i, j);
+}`
+};
+const NAMES = {bubble:"Bubble sort",insertion:"Insertion sort",selection:"Selection sort",shell:"Shell sort",quick:"Quick sort",merge:"Merge sort",heap:"Heap sort",comb:"Comb sort",cocktail:"Cocktail shaker",radix:"Radix sort (LSD)",bogo:"Bogo (small n only)",custom:"★ Custom (my code)"};
+const CUSTOM_DEFAULT = `// Write your own! Sort array \`a\` in place.
+// Example: gnome sort
+let i = 0;
+while (i < n) {
+  if (i === 0 || a[i] >= a[i - 1]) i++;
+  else { swap(i, i - 1); i--; }
+}`;
+
+/* ---------- DOM ---------- */
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+const algoSel = $("algo"), codeEl = $("code"), errEl = $("err");
+for (const k in NAMES) algoSel.add(new Option(NAMES[k], k));
+let customCode = CUSTOM_DEFAULT;
+try { customCode = localStorage.getItem("sortlab.custom") || CUSTOM_DEFAULT; } catch(e){}
+
+/* ---------- State ---------- */
+let N = 64, arr = [], base = [], ops = [], opIdx = 0, playing = false, finished = false;
+let reads = 0, writes = 0, hiR = new Set(), hiW = new Set(), sweep = -1;
+
+function makeArray(){
+  const shape = $("shape").value;
+  base = Array.from({length:N}, (_, i) => i + 1);
+  if (shape === "reverse") base.reverse();
+  else if (shape === "few") base = base.map(v => Math.ceil(v / (N/5)) * Math.floor(N/5) || 1);
+  if (shape === "shuffle" || shape === "few") for (let i = N-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [base[i],base[j]]=[base[j],base[i]]; }
+  if (shape === "nearly") for (let k = 0; k < Math.max(2, N/16); k++) { const i = Math.floor(Math.random()*N), j = Math.floor(Math.random()*N); [base[i],base[j]]=[base[j],base[i]]; }
+  arr = base.slice(); ops = []; opIdx = 0; finished = false; playing = false;
+  reads = writes = 0; hiR.clear(); hiW.clear(); sweep = -1;
+  $("play").textContent = "▶ Run"; draw(); updStats();
+}
+
+/* ---------- Recording the algorithm run ---------- */
+const MAX_OPS = 3_000_000;
+function record(src){
+  const log = []; const a0 = base.slice(); const n = a0.length;
+  const push = (t,i,v) => { if (log.length > MAX_OPS) throw new Error("Too many operations (>"+MAX_OPS+"). Reduce the size or check for an infinite loop."); log.push(t,i,v); };
+  const a = new Proxy(a0, {
+    get(t,p){ if (typeof p === "string" && p !== "length" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return undefined; push(0,i,0); return t[i]; } return t[p]; },
+    set(t,p,v){ if (typeof p === "string" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return true; if (typeof v !== "number" || !isFinite(v)) throw new Error("a["+i+"] must be set to a number, got "+v); push(1,i,v); t[i]=v; return true; } t[p]=v; return true; }
+  });
+  const swap = (i,j) => { const x = a[i], y = a[j]; a[i] = y; a[j] = x; };
+  const less = (i,j) => a[i] < a[j];
+  new Function("a","n","swap","less",'"use strict";\n'+src)(a,n,swap,less);
+  return {log, final:a0};
+}
+
+function prepare(){
+  errEl.textContent = "";
+  const key = algoSel.value;
+  const src = key === "custom" ? customCode : ALGOS[key];
+  const t0 = performance.now();
+  let res;
+  try { res = record(src); }
+  catch(e){ errEl.textContent = (e && e.message) || String(e); $("editor").open = true; return false; }
+  ops = res.log; opIdx = 0; arr = base.slice(); reads = writes = 0; hiR.clear(); hiW.clear(); sweep = -1;
+  // check correctness
+  let ok = true; for (let i = 1; i < res.final.length; i++) if (res.final[i-1] > res.final[i]) { ok = false; break; }
+  if (!ok) errEl.textContent = "Heads up: the final array isn't sorted — your algorithm has a bug (animation will still play).";
+  return true;
+}
+
+/* ---------- Audio ---------- */
+let ac = null, gain = null, osc = null;
+function beep(v){
+  if (!$("snd").checked) return;
+  if (!ac) { try { ac = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ return; }
+    gain = ac.createGain(); gain.gain.value = 0.04; gain.connect(ac.destination);
+    osc = ac.createOscillator(); osc.type = "triangle"; osc.connect(gain); osc.start(); }
+  if (ac.state === "suspended") ac.resume();
+  osc.frequency.setTargetAtTime(150 + (v / N) * 1100, ac.currentTime, 0.005);
+}
+function silence(){ if (gain) gain.gain.setTargetAtTime(0, ac.currentTime, 0.02); }
+function unsilence(){ if (gain) gain.gain.setTargetAtTime(0.04, ac.currentTime, 0.01); }
+
+/* ---------- Rendering ---------- */
+function resize(){
+  const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+  cv.width = Math.max(1, r.width * d); cv.height = Math.max(1, r.height * d); draw();
+}
+function draw(){
+  const W = cv.width, H = cv.height, n = arr.length;
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
+  const bw = W / n, gap = bw > 4 ? Math.max(1, bw * 0.12) : 0;
+  for (let i = 0; i < n; i++){
+    const h = arr[i] / N * (H - 4);
+    let c;
+    if (sweep >= 0 && i <= sweep) c = "#35d07f";
+    else if (hiW.has(i)) c = "#ff5b7a";
+    else if (hiR.has(i)) c = "#ffd24a";
+    else c = "hsl(" + Math.round(arr[i] / N * 270 + 200) % 360 + ",70%,58%)";
+    ctx.fillStyle = c;
+    ctx.fillRect(i * bw, H - h, bw - gap, h);
+  }
+}
+function updStats(){ $("stats").textContent = reads.toLocaleString()+" reads · "+writes.toLocaleString()+" writes"; }
+
+/* ---------- Playback loop ---------- */
+function opsPerFrame(){
+  const s = +$("speed").value / 100;           // 0..1
+  return Math.max(0.05, Math.pow(10, s * 4 - 1.3)); // ~0.05 .. ~500 ops per frame
+}
+let acc = 0;
+function frame(){
+  if (!playing) return;
+  acc += opsPerFrame();
+  let steps = Math.floor(acc); acc -= steps;
+  if (steps > 0) { hiR.clear(); hiW.clear(); }
+  let lastV = 0;
+  while (steps-- > 0 && opIdx < ops.length){
+    const t = ops[opIdx], i = ops[opIdx+1], v = ops[opIdx+2]; opIdx += 3;
+    if (t === 0) { reads++; hiR.add(i); lastV = arr[i]; }
+    else { writes++; arr[i] = v; hiW.add(i); lastV = v; }
+  }
+  if (lastV) beep(lastV);
+  if (opIdx >= ops.length) { playing = false; finish(); return; }
+  draw(); updStats();
+  requestAnimationFrame(frame);
+}
+function finish(){
+  hiR.clear(); hiW.clear(); arr = ops.length ? arr : arr; updStats();
+  let i = 0; sweep = -1;
+  const step = () => {
+    const per = Math.max(1, Math.ceil(N / 90));
+    sweep = Math.min(N - 1, sweep + per); beep(arr[sweep]); draw();
+    if (sweep < N - 1) requestAnimationFrame(step); else { silence(); finished = true; $("play").textContent = "↻ Run again"; }
+  };
+  step();
+}
+
+/* ---------- Controls ---------- */
+$("play").onclick = () => {
+  if (playing) { playing = false; silence(); $("play").textContent = "▶ Resume"; return; }
+  if (finished) makeArray();
+  if (opIdx === 0 || ops.length === 0) { if (!prepare()) return; }
+  playing = true; unsilence(); $("play").textContent = "⏸ Pause"; requestAnimationFrame(frame);
+};
+$("shuf").onclick = () => { silence(); makeArray(); };
+$("shape").onchange = () => makeArray();
+$("n").oninput = e => { N = +e.target.value; $("nlab").textContent = N; makeArray(); };
+$("snd").onchange = e => { if (!e.target.checked) silence(); };
+algoSel.onchange = () => {
+  const k = algoSel.value;
+  codeEl.value = k === "custom" ? customCode : ALGOS[k];
+  codeEl.readOnly = false;
+  if (k === "bogo" && N > 8) { N = 6; $("n").value = 8; $("nlab").textContent = 8; N = 8; }
+  silence(); makeArray();
+};
+codeEl.oninput = () => {
+  // Editing any code makes it the custom algorithm, so built-ins are never lost.
+  customCode = codeEl.value; try { localStorage.setItem("sortlab.custom", customCode); } catch(e){}
+};
+$("useCustom").onclick = () => {
+  customCode = codeEl.value; try { localStorage.setItem("sortlab.custom", customCode); } catch(e){}
+  algoSel.value = "custom"; silence(); makeArray(); $("play").click();
+};
+$("reset").onclick = () => { customCode = CUSTOM_DEFAULT; codeEl.value = customCode; try { localStorage.removeItem("sortlab.custom"); } catch(e){} };
+codeEl.addEventListener("keydown", e => {
+  if (e.key === "Tab") { e.preventDefault(); const s = codeEl.selectionStart; codeEl.setRangeText("  ", s, codeEditEnd(), "end"); codeEl.dispatchEvent(new Event("input")); }
+});
+function codeEditEnd(){ return codeEl.selectionEnd; }
+addEventListener("resize", resize);
+
+/* init */
+codeEl.value = ALGOS.bubble;
+makeArray(); resize();
+</script>
+</body>
+</html>
