@@ -3,77 +3,128 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0d12">
+<meta name="theme-color" content="#08090e">
+
 <title>Sort Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
 <style>
-  :root{--bg:#0b0d12;--panel:#151922;--line:#262c3a;--fg:#e8ecf4;--dim:#8a93a6;--acc:#5b8cff;--read:#ffd24a;--write:#ff5b7a;--ok:#35d07f}
+  /* Layout: full-height app. Header, canvas stage, stat strip, control sheet. Dark-first, committed single look. */
+  :root{
+    --bg:#08090e; --bg2:#0e1018; --panel:#12141d; --panel2:#181b27; --line:#23273a;
+    --fg:#eef0f8; --dim:#8b91a8; --acc:#7c8cff; --acc2:#c06bff; --hot:#ff5c8a; --ok:#3be0a0;
+    --display:"Space Grotesk",system-ui,sans-serif; --body:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color-scheme:dark;
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overscroll-behavior:none}
-  body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-  header{display:flex;align-items:center;gap:8px;padding:10px 12px}
-  h1{font-size:17px;margin:0;flex:1}
-  .stats{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
-  #stage{flex:1;min-height:180px;margin:0 12px;border-radius:12px;background:#000;overflow:hidden;position:relative}
-  canvas{width:100%;height:100%;display:block}
-  .panel{background:var(--panel);border-top:1px solid var(--line);padding:10px 12px 12px;max-height:52vh;overflow:auto}
-  .row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
-  select,button,input[type=number]{background:#1d2330;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;min-height:44px}
-  select{flex:1;min-width:0}
-  button{cursor:pointer;font-weight:600}
-  button.primary{background:var(--acc);border-color:var(--acc);color:#fff;flex:1}
-  button:active{filter:brightness(1.2)}
-  label{display:flex;flex-direction:column;gap:2px;flex:1;min-width:120px;font-size:12px;color:var(--dim)}
-  input[type=range]{width:100%;accent-color:var(--acc);height:28px}
-  textarea{width:100%;height:220px;background:#0e1118;color:#d6e2ff;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;tab-size:2}
-  #err{color:var(--write);font-size:12px;min-height:16px;white-space:pre-wrap}
-  details summary{cursor:pointer;color:var(--dim);padding:6px 0}
-  .help{font-size:12px;color:var(--dim);margin:0 0 8px}
-  .help code{color:var(--fg);background:#0e1118;padding:1px 4px;border-radius:4px}
-  .chk{flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;min-width:0}
+  html{color-scheme:dark}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font:15px/1.45 var(--body);overscroll-behavior:none}
+  body{
+    background:radial-gradient(900px 420px at 50% -120px,#1a1d3a 0%,transparent 70%),var(--bg);
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+    padding-block:10px 18px;display:flex;flex-direction:column;gap:12px;min-height:100vh;
+  }
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:end center;padding:6px 5px;gap:2px;grid-auto-flow:column;align-items:end}
+  .logo i{display:block;width:3px;background:#fff;border-radius:1px;opacity:.95}
+  h1{font:700 19px/1 var(--display);margin:0;letter-spacing:-.01em}
+  .now{text-align:right;min-width:0}
+  .now b{display:block;font:600 14px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .now span{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+  #stage{position:relative;flex:1 1 260px;min-height:240px;border-radius:18px;background:#05060a;border:1px solid var(--line);overflow:hidden;box-shadow:0 12px 40px -18px #000, inset 0 0 60px -30px #3b4bff55}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .1s linear}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:9px 12px;min-width:0}
+  .stat small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .stat b{font:600 18px/1.25 var(--display);font-variant-numeric:tabular-nums}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:14px}
+  .chips{display:flex;gap:8px;overflow-x:auto;margin:0 -14px;padding:2px 14px;scrollbar-width:none;scroll-snap-type:x proximity}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;scroll-snap-align:start;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font:500 13.5px var(--body);min-height:38px;cursor:pointer}
+  .chip[aria-pressed="true"]{color:#fff;border-color:transparent;background:linear-gradient(135deg,var(--acc),var(--acc2))}
+  .ctl{display:flex;align-items:center;gap:10px}
+  button{font:inherit;color:var(--fg);cursor:pointer}
+  #play{flex:1;min-height:52px;border:0;border-radius:16px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font:700 16px var(--display);letter-spacing:.01em;box-shadow:0 8px 24px -8px var(--acc)}
+  #play:active{transform:scale(.98)}
+  .ib{width:52px;height:52px;flex:0 0 auto;border-radius:16px;border:1px solid var(--line);background:var(--panel2);font-size:20px;display:grid;place-items:center}
+  .ib[aria-pressed="false"]{color:var(--dim);opacity:.7}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+  .seg button{border:0;background:none;color:var(--dim);border-radius:9px;padding:8px 0;font:500 13px var(--body);min-height:36px}
+  .seg button[aria-pressed="true"]{background:var(--line);color:var(--fg)}
+  .sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px 16px}
+  .sl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim);min-width:0}
+  .sl span{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+  .sl span em{font-style:normal;color:var(--fg)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:none;margin:0}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:var(--line)}
+  input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:var(--line)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8.5px;border-radius:50%;background:#fff;border:0;box-shadow:0 2px 8px #0008}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:0}
+  select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:0 12px;min-height:44px;font:inherit;width:100%}
+  :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  details{border-top:1px solid var(--line);padding-top:10px}
+  summary{cursor:pointer;color:var(--dim);font-weight:500;min-height:32px;display:flex;align-items:center}
+  .help{font-size:12.5px;color:var(--dim);margin:6px 0 10px}
+  .help code{color:var(--fg);background:#0a0c13;padding:1px 5px;border-radius:5px;font-size:12px}
+  textarea{width:100%;height:240px;background:#07080d;color:#cfdbff;border:1px solid var(--line);border-radius:12px;padding:12px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:vertical;tab-size:2}
+  .row2{display:flex;gap:8px;margin-top:10px}
+  .btn{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-weight:600}
+  .btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+  #err{color:var(--hot);font-size:12.5px;white-space:pre-wrap;margin-top:6px}
+  #err:empty{display:none}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <h1>Sort Lab</h1>
-  <div class="stats" id="stats">0 reads · 0 writes</div>
-</header>
-<div id="stage"><canvas id="cv"></canvas></div>
 
-<div class="panel">
-  <div class="row">
-    <select id="algo" aria-label="Algorithm"></select>
-    <button id="play" class="primary">▶ Run</button>
-  </div>
-  <div class="row">
-    <label>Speed <input type="range" id="speed" min="0" max="100" value="55"></label>
-    <label>Size: <span id="nlab">64</span> <input type="range" id="n" min="8" max="512" value="64"></label>
-  </div>
-  <div class="row">
-    <select id="shape" aria-label="Initial order">
-      <option value="shuffle">Shuffled</option>
-      <option value="reverse">Reversed</option>
-      <option value="nearly">Nearly sorted</option>
-      <option value="few">Few unique</option>
-    </select>
-    <button id="shuf">Reset</button>
-    <label class="chk"><input type="checkbox" id="snd" checked> Sound</label>
-  </div>
-  <details id="editor">
-    <summary>✎ Edit / write your own algorithm</summary>
-    <p class="help">
-      Plain JavaScript. Sort the array <code>a</code> in place (length <code>n</code>, values 1..n).
-      Reads, writes and swaps are recorded and animated automatically.
-      Helpers: <code>swap(i,j)</code>, <code>less(i,j)</code> (compares a[i]&lt;a[j]).
-      Choosing “Custom” runs this code.
-    </p>
-    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
-    <div class="row" style="margin-top:8px">
-      <button id="useCustom" class="primary">Use as Custom</button>
-      <button id="reset">Reset code</button>
-    </div>
-    <div id="err"></div>
-  </details>
+<header>
+  <div class="brand"><div class="logo" aria-hidden="true"><i style="height:7px"></i><i style="height:13px"></i><i style="height:10px"></i><i style="height:17px"></i></div><h1>Sort Lab</h1></div>
+  <div class="now"><b id="nowName">Bubble sort</b><span id="nowBig">O(n²)</span></div>
+</header>
+
+<div id="stage"><canvas id="cv"></canvas><div id="bar"></div></div>
+
+<div class="stats">
+  <div class="stat"><small>Reads</small><b id="sR">0</b></div>
+  <div class="stat"><small>Writes</small><b id="sW">0</b></div>
+  <div class="stat"><small>Progress</small><b id="sP">0%</b></div>
 </div>
+
+<section class="sheet">
+  <div class="chips" id="chips" role="group" aria-label="Algorithm"></div>
+
+  <div class="ctl">
+    <button id="play">▶ Run</button>
+    <button id="shuf" class="ib" aria-label="Shuffle again" title="Reset">↺</button>
+    <button id="snd" class="ib" aria-pressed="true" aria-label="Sound" title="Sound">🔊</button>
+  </div>
+
+  <div class="seg" id="view" role="group" aria-label="View">
+    <button data-v="bars" aria-pressed="true">Bars</button>
+    <button data-v="dots" aria-pressed="false">Dots</button>
+    <button data-v="wheel" aria-pressed="false">Wheel</button>
+  </div>
+
+  <div class="sliders">
+    <label class="sl"><span>Speed <em id="spLab"></em></span><input type="range" id="speed" min="0" max="100" value="55"></label>
+    <label class="sl"><span>Size <em id="nlab">64</em></span><input type="range" id="n" min="8" max="512" value="64"></label>
+    <label class="sl"><span>Volume <em id="vLab">60%</em></span><input type="range" id="vol" min="0" max="100" value="60"></label>
+    <label class="sl"><span>Starting order</span>
+      <select id="shape"><option value="shuffle">Shuffled</option><option value="reverse">Reversed</option><option value="nearly">Nearly sorted</option><option value="few">Few unique</option></select>
+    </label>
+  </div>
+
+  <details id="editor">
+    <summary>✎ Write your own algorithm</summary>
+    <p class="help">Plain JavaScript. Sort array <code>a</code> in place (length <code>n</code>, values 1 to n). Reads, writes and swaps animate on their own. Helpers: <code>swap(i,j)</code> and <code>less(i,j)</code>.</p>
+    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Algorithm code"></textarea>
+    <div class="row2"><button id="useCustom" class="btn p">Run my code</button><button id="reset" class="btn">Reset code</button></div>
+    <div id="err" role="alert"></div>
+  </details>
+</section>
 
 <script>
 "use strict";
@@ -190,17 +241,32 @@ while (i < n) {
   else { swap(i, i - 1); i--; }
 }`;
 
-/* ---------- DOM ---------- */
+
+const BIGO = {bubble:"O(n²) · stable",insertion:"O(n²) · stable",selection:"O(n²) · unstable",shell:"≈O(n^1.3)",quick:"O(n log n) avg",merge:"O(n log n) · stable",heap:"O(n log n)",comb:"≈O(n log n)",cocktail:"O(n²) · stable",radix:"O(n·k)",bogo:"O((n+1)!)",custom:"your code"};
 const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
-const algoSel = $("algo"), codeEl = $("code"), errEl = $("err");
-for (const k in NAMES) algoSel.add(new Option(NAMES[k], k));
+const codeEl = $("code"), errEl = $("err");
 let customCode = CUSTOM_DEFAULT;
-try { customCode = localStorage.getItem("sortlab.custom") || CUSTOM_DEFAULT; } catch(e){}
+const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+customCode = store.get("sortlab.custom") || CUSTOM_DEFAULT;
 
 /* ---------- State ---------- */
 let N = 64, arr = [], base = [], ops = [], opIdx = 0, playing = false, finished = false;
 let reads = 0, writes = 0, hiR = new Set(), hiW = new Set(), sweep = -1;
+let algo = "bubble", view = "bars", soundOn = true;
+
+/* algorithm chips */
+const chipsEl = $("chips");
+for (const k in NAMES){ const b = document.createElement("button"); b.className="chip"; b.dataset.k=k; b.textContent=NAMES[k]; b.setAttribute("aria-pressed", k===algo); chipsEl.appendChild(b); }
+function setAlgo(k){
+  algo = k; for (const c of chipsEl.children) c.setAttribute("aria-pressed", c.dataset.k===k);
+  $("nowName").textContent = NAMES[k].replace("★ ",""); $("nowBig").textContent = BIGO[k];
+  codeEl.value = k === "custom" ? customCode : ALGOS[k];
+  if (k === "bogo" && N > 8) { N = 8; $("n").value = 8; $("nlab").textContent = 8; }
+  const el = chipsEl.querySelector('[aria-pressed="true"]'); if (el && el.scrollIntoView) { try{ chipsEl.scrollTo({left: el.offsetLeft - 16, behavior:"smooth"}); }catch(e){} }
+  stopSound(); makeArray();
+}
+chipsEl.onclick = e => { const b = e.target.closest(".chip"); if (b) setAlgo(b.dataset.k); };
 
 function makeArray(){
   const shape = $("shape").value;
@@ -209,7 +275,7 @@ function makeArray(){
   else if (shape === "few") base = base.map(v => Math.ceil(v / (N/5)) * Math.floor(N/5) || 1);
   if (shape === "shuffle" || shape === "few") for (let i = N-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [base[i],base[j]]=[base[j],base[i]]; }
   if (shape === "nearly") for (let k = 0; k < Math.max(2, N/16); k++) { const i = Math.floor(Math.random()*N), j = Math.floor(Math.random()*N); [base[i],base[j]]=[base[j],base[i]]; }
-  arr = base.slice(); ops = []; opIdx = 0; finished = false; playing = false;
+  arr = base.slice(); ops = []; opIdx = 0; finished = false; playing = false; acc = 0;
   reads = writes = 0; hiR.clear(); hiW.clear(); sweep = -1;
   $("play").textContent = "▶ Run"; draw(); updStats();
 }
@@ -218,7 +284,7 @@ function makeArray(){
 const MAX_OPS = 3_000_000;
 function record(src){
   const log = []; const a0 = base.slice(); const n = a0.length;
-  const push = (t,i,v) => { if (log.length > MAX_OPS) throw new Error("Too many operations (>"+MAX_OPS+"). Reduce the size or check for an infinite loop."); log.push(t,i,v); };
+  const push = (t,i,v) => { if (log.length > MAX_OPS*3) throw new Error("Too many operations (over "+MAX_OPS+"). Reduce the size or check for an infinite loop."); log.push(t,i,v); };
   const a = new Proxy(a0, {
     get(t,p){ if (typeof p === "string" && p !== "length" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return undefined; push(0,i,0); return t[i]; } return t[p]; },
     set(t,p,v){ if (typeof p === "string" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return true; if (typeof v !== "number" || !isFinite(v)) throw new Error("a["+i+"] must be set to a number, got "+v); push(1,i,v); t[i]=v; return true; } t[p]=v; return true; }
@@ -228,126 +294,178 @@ function record(src){
   new Function("a","n","swap","less",'"use strict";\n'+src)(a,n,swap,less);
   return {log, final:a0};
 }
-
 function prepare(){
   errEl.textContent = "";
-  const key = algoSel.value;
-  const src = key === "custom" ? customCode : ALGOS[key];
-  const t0 = performance.now();
+  const src = algo === "custom" ? customCode : ALGOS[algo];
   let res;
   try { res = record(src); }
   catch(e){ errEl.textContent = (e && e.message) || String(e); $("editor").open = true; return false; }
   ops = res.log; opIdx = 0; arr = base.slice(); reads = writes = 0; hiR.clear(); hiW.clear(); sweep = -1;
-  // check correctness
   let ok = true; for (let i = 1; i < res.final.length; i++) if (res.final[i-1] > res.final[i]) { ok = false; break; }
-  if (!ok) errEl.textContent = "Heads up: the final array isn't sorted — your algorithm has a bug (animation will still play).";
+  if (!ok) { errEl.textContent = "The final array isn't sorted, so your algorithm has a bug. The animation will still play."; $("editor").open = true; }
   return true;
 }
 
-/* ---------- Audio ---------- */
-let ac = null, gain = null, osc = null;
-function beep(v){
-  if (!$("snd").checked) return;
-  if (!ac) { try { ac = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ return; }
-    gain = ac.createGain(); gain.gain.value = 0.04; gain.connect(ac.destination);
-    osc = ac.createOscillator(); osc.type = "triangle"; osc.connect(gain); osc.start(); }
-  if (ac.state === "suspended") ac.resume();
-  osc.frequency.setTargetAtTime(150 + (v / N) * 1100, ac.currentTime, 0.005);
+/* ---------- Audio ----------
+   The AudioContext is created and resumed inside the tap handler (required by iOS/Safari),
+   and a silent looping <audio> element lets Web Audio play even with the iPhone ring switch on silent. */
+let ac = null, master = null, lastNote = 0, keepAlive = null;
+function silentWav(){
+  const sr = 8000, n = 800, buf = new ArrayBuffer(44 + n*2), v = new DataView(buf);
+  const w = (o,s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4,36+n*2,true); w(8,"WAVEfmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,n*2,true);
+  let bin = ""; const u = new Uint8Array(buf); for (let i=0;i<u.length;i++) bin += String.fromCharCode(u[i]);
+  return "data:audio/wav;base64," + btoa(bin);
 }
-function silence(){ if (gain) gain.gain.setTargetAtTime(0, ac.currentTime, 0.02); }
-function unsilence(){ if (gain) gain.gain.setTargetAtTime(0.04, ac.currentTime, 0.01); }
+function initAudio(){
+  try {
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      ac = new AC();
+      master = ac.createGain(); master.gain.value = $("vol").value / 100 * 0.5;
+      const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
+      try { keepAlive = new Audio(silentWav()); keepAlive.loop = true; keepAlive.setAttribute("playsinline",""); keepAlive.play().catch(()=>{}); } catch(e){}
+    }
+    if (ac.state !== "running") ac.resume();
+    // tiny inaudible blip primes some browsers
+    const o = ac.createOscillator(), g = ac.createGain(); g.gain.value = 0.0001; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.02);
+  } catch(e){}
+}
+function note(v, loud){
+  if (!soundOn || !ac || ac.state !== "running") return;
+  const t = ac.currentTime;
+  if (t - lastNote < 0.018) return;            // rate limit so fast runs sound like a shimmer, not a buzz
+  lastNote = t;
+  const f = 110 * Math.pow(2, (v / N) * 4.2);  // about 4 octaves, exponential so steps sound even
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = loud ? "triangle" : "sine"; o.frequency.value = f;
+  const peak = loud ? 0.9 : 0.45, dur = loud ? 0.14 : 0.09;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+}
+function stopSound(){ /* notes are self-terminating */ }
 
 /* ---------- Rendering ---------- */
+let W = 0, H = 0;
 function resize(){
-  const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
-  cv.width = Math.max(1, r.width * d); cv.height = Math.max(1, r.height * d); draw();
+  const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2.5);
+  W = cv.width = Math.max(1, Math.round(r.width * d)); H = cv.height = Math.max(1, Math.round(r.height * d)); draw();
 }
+const hue = v => (v / N) * 300 + 215;   // blue → violet → pink → red, one sweep of the wheel
+function col(v, l){ return "hsl(" + (hue(v) % 360) + ",85%," + (l||60) + "%)"; }
 function draw(){
-  const W = cv.width, H = cv.height, n = arr.length;
-  ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
-  const bw = W / n, gap = bw > 4 ? Math.max(1, bw * 0.12) : 0;
+  const n = arr.length;
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#05060a"; ctx.fillRect(0,0,W,H);
+  if (view === "bars") drawBars(n); else if (view === "dots") drawDots(n); else drawWheel(n);
+}
+function state(i){ return sweep >= 0 && i <= sweep ? 3 : hiW.has(i) ? 2 : hiR.has(i) ? 1 : 0; }
+function glow(s){ return s===3 ? "#3be0a0" : s===2 ? "#ff5c8a" : "#ffffff"; }
+function drawBars(n){
+  const pad = 10 * (W / 400), bw = (W - pad*2) / n, gap = bw > 5 ? bw * 0.14 : 0, r = Math.min(bw/2 - gap/2, 6 * (W/400));
+  const base0 = H - pad, hmax = H - pad*2 - 4;
   for (let i = 0; i < n; i++){
-    const h = arr[i] / N * (H - 4);
-    let c;
-    if (sweep >= 0 && i <= sweep) c = "#35d07f";
-    else if (hiW.has(i)) c = "#ff5b7a";
-    else if (hiR.has(i)) c = "#ffd24a";
-    else c = "hsl(" + Math.round(arr[i] / N * 270 + 200) % 360 + ",70%,58%)";
-    ctx.fillStyle = c;
-    ctx.fillRect(i * bw, H - h, bw - gap, h);
+    const h = Math.max(2, arr[i] / N * hmax), x = pad + i*bw, w = Math.max(1, bw - gap), s = state(i);
+    if (s === 3) ctx.fillStyle = col(arr[i], 62);
+    else if (s === 2) ctx.fillStyle = "#ff5c8a";
+    else if (s === 1) ctx.fillStyle = "#fff";
+    else ctx.fillStyle = col(arr[i], 56);
+    if (s && s !== 3) { ctx.shadowColor = glow(s); ctx.shadowBlur = 18 * (W/400); } else ctx.shadowBlur = 0;
+    ctx.beginPath();
+    if (r > 1.5 && ctx.roundRect) ctx.roundRect(x, base0 - h, w, h, [r, r, 1, 1]); else ctx.rect(x, base0 - h, w, h);
+    ctx.fill();
   }
+  ctx.shadowBlur = 0;
+  if (sweep >= 0) { ctx.fillStyle = "#3be0a022"; ctx.fillRect(0,0,pad + (sweep+1)*bw,H); }
 }
-function updStats(){ $("stats").textContent = reads.toLocaleString()+" reads · "+writes.toLocaleString()+" writes"; }
+function drawDots(n){
+  const pad = 14 * (W/400), bw = (W - pad*2) / n, rad = Math.max(1.5*(W/400), Math.min(bw*0.45, 9*(W/400)));
+  for (let i = 0; i < n; i++){
+    const x = pad + (i + .5) * bw, y = H - pad - arr[i] / N * (H - pad*2), s = state(i);
+    ctx.fillStyle = s===2 ? "#ff5c8a" : s===1 ? "#fff" : col(arr[i], 62);
+    if (s && s !== 3) { ctx.shadowColor = glow(s); ctx.shadowBlur = 16*(W/400); } else ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(x, y, rad * (s && s!==3 ? 1.5 : 1), 0, 6.2832); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+}
+function drawWheel(n){
+  const cx = W/2, cy = H/2, R = Math.min(W, H)/2 - 10*(W/400), r0 = R * 0.12;
+  ctx.lineCap = "round";
+  const lw = Math.max(1.5, Math.min(R * 2 * Math.PI / n * 0.62, 12 * (W/400)));
+  ctx.lineWidth = lw;
+  for (let i = 0; i < n; i++){
+    const a = (i / n) * 6.2832 - 1.5708, s = state(i), rr = r0 + (arr[i] / N) * (R - r0);
+    ctx.strokeStyle = s===2 ? "#ff5c8a" : s===1 ? "#fff" : col(arr[i], 58);
+    if (s && s !== 3) { ctx.shadowColor = glow(s); ctx.shadowBlur = 14*(W/400); } else ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a)*r0, cy + Math.sin(a)*r0); ctx.lineTo(cx + Math.cos(a)*rr, cy + Math.sin(a)*rr); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+}
+function updStats(){
+  $("sR").textContent = reads.toLocaleString(); $("sW").textContent = writes.toLocaleString();
+  const p = ops.length ? Math.round(opIdx / ops.length * 100) : (finished ? 100 : 0);
+  $("sP").textContent = p + "%"; $("bar").style.width = p + "%";
+}
 
-/* ---------- Playback loop ---------- */
-function opsPerFrame(){
-  const s = +$("speed").value / 100;           // 0..1
-  return Math.max(0.05, Math.pow(10, s * 4 - 1.3)); // ~0.05 .. ~500 ops per frame
-}
+/* ---------- Playback ---------- */
+function opsPerFrame(){ const s = +$("speed").value / 100; return Math.max(0.05, Math.pow(10, s * 4 - 1.3)); }
+function speedLabel(){ const o = opsPerFrame() * 60; $("spLab").textContent = o < 1000 ? Math.round(o) + " ops/s" : (o/1000).toFixed(o < 10000 ? 1 : 0) + "k ops/s"; }
 let acc = 0;
 function frame(){
   if (!playing) return;
   acc += opsPerFrame();
   let steps = Math.floor(acc); acc -= steps;
   if (steps > 0) { hiR.clear(); hiW.clear(); }
-  let lastV = 0;
+  let lastV = 0, lastW = false;
   while (steps-- > 0 && opIdx < ops.length){
     const t = ops[opIdx], i = ops[opIdx+1], v = ops[opIdx+2]; opIdx += 3;
-    if (t === 0) { reads++; hiR.add(i); lastV = arr[i]; }
-    else { writes++; arr[i] = v; hiW.add(i); lastV = v; }
+    if (t === 0) { reads++; hiR.add(i); lastV = arr[i]; lastW = false; }
+    else { writes++; arr[i] = v; hiW.add(i); lastV = v; lastW = true; }
   }
-  if (lastV) beep(lastV);
+  if (lastV) note(lastV, lastW);
   if (opIdx >= ops.length) { playing = false; finish(); return; }
   draw(); updStats();
   requestAnimationFrame(frame);
 }
 function finish(){
-  hiR.clear(); hiW.clear(); arr = ops.length ? arr : arr; updStats();
-  let i = 0; sweep = -1;
+  hiR.clear(); hiW.clear(); sweep = -1; finished = true; updStats();
+  const per = Math.max(1, Math.ceil(N / 80));
   const step = () => {
-    const per = Math.max(1, Math.ceil(N / 90));
-    sweep = Math.min(N - 1, sweep + per); beep(arr[sweep]); draw();
-    if (sweep < N - 1) requestAnimationFrame(step); else { silence(); finished = true; $("play").textContent = "↻ Run again"; }
+    sweep = Math.min(N - 1, sweep + per); note(arr[sweep], true); draw();
+    if (sweep < N - 1) requestAnimationFrame(step); else { $("play").textContent = "↻ Run again"; }
   };
   step();
 }
 
 /* ---------- Controls ---------- */
 $("play").onclick = () => {
-  if (playing) { playing = false; silence(); $("play").textContent = "▶ Resume"; return; }
+  initAudio();
+  if (playing) { playing = false; $("play").textContent = "▶ Resume"; return; }
   if (finished) makeArray();
   if (opIdx === 0 || ops.length === 0) { if (!prepare()) return; }
-  playing = true; unsilence(); $("play").textContent = "⏸ Pause"; requestAnimationFrame(frame);
+  playing = true; $("play").textContent = "⏸ Pause"; requestAnimationFrame(frame);
 };
-$("shuf").onclick = () => { silence(); makeArray(); };
+$("shuf").onclick = () => makeArray();
 $("shape").onchange = () => makeArray();
 $("n").oninput = e => { N = +e.target.value; $("nlab").textContent = N; makeArray(); };
-$("snd").onchange = e => { if (!e.target.checked) silence(); };
-algoSel.onchange = () => {
-  const k = algoSel.value;
-  codeEl.value = k === "custom" ? customCode : ALGOS[k];
-  codeEl.readOnly = false;
-  if (k === "bogo" && N > 8) { N = 6; $("n").value = 8; $("nlab").textContent = 8; N = 8; }
-  silence(); makeArray();
-};
-codeEl.oninput = () => {
-  // Editing any code makes it the custom algorithm, so built-ins are never lost.
-  customCode = codeEl.value; try { localStorage.setItem("sortlab.custom", customCode); } catch(e){}
-};
+$("speed").oninput = speedLabel;
+$("vol").oninput = e => { $("vLab").textContent = e.target.value + "%"; if (master) master.gain.value = e.target.value / 100 * 0.5; };
+$("snd").onclick = () => { soundOn = !soundOn; $("snd").setAttribute("aria-pressed", soundOn); $("snd").textContent = soundOn ? "🔊" : "🔇"; if (soundOn) { initAudio(); note(N*0.5, true); } };
+$("view").onclick = e => { const b = e.target.closest("button"); if (!b) return; view = b.dataset.v; for (const x of $("view").children) x.setAttribute("aria-pressed", x === b); draw(); };
+codeEl.oninput = () => { customCode = codeEl.value; store.set("sortlab.custom", customCode); };
 $("useCustom").onclick = () => {
-  customCode = codeEl.value; try { localStorage.setItem("sortlab.custom", customCode); } catch(e){}
-  algoSel.value = "custom"; silence(); makeArray(); $("play").click();
+  customCode = codeEl.value; store.set("sortlab.custom", customCode);
+  setAlgo("custom"); $("play").click();
 };
-$("reset").onclick = () => { customCode = CUSTOM_DEFAULT; codeEl.value = customCode; try { localStorage.removeItem("sortlab.custom"); } catch(e){} };
+$("reset").onclick = () => { customCode = CUSTOM_DEFAULT; codeEl.value = customCode; store.del("sortlab.custom"); };
 codeEl.addEventListener("keydown", e => {
-  if (e.key === "Tab") { e.preventDefault(); const s = codeEl.selectionStart; codeEl.setRangeText("  ", s, codeEditEnd(), "end"); codeEl.dispatchEvent(new Event("input")); }
+  if (e.key === "Tab") { e.preventDefault(); codeEl.setRangeText("  ", codeEl.selectionStart, codeEl.selectionEnd, "end"); codeEl.dispatchEvent(new Event("input")); }
 });
-function codeEditEnd(){ return codeEl.selectionEnd; }
-addEventListener("resize", resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe($("stage")); else addEventListener("resize", resize);
 
 /* init */
-codeEl.value = ALGOS.bubble;
-makeArray(); resize();
+speedLabel(); setAlgo("bubble"); resize();
 </script>
 </body>
 </html>
