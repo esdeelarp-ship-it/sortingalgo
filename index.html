@@ -8,9 +8,6 @@
 <title>Sort Lab</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-  /* Concept: the classic sorting-visualizer look. Full-screen black, edge-to-edge rainbow bars, white highlights,
-     green finish sweep, a big algorithm name on top. Controls live in a slide-up drawer so the picture stays clean.
-     No web fonts, no blur or shadow effects, so it stays light on phones. */
   :root{--bg:#000;--fg:#fff;--dim:#9a9a9a;--panel:#141414;--line:#2a2a2a;--btn:#1f1f1f;--hot:#ff3b30;color-scheme:dark;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -99,7 +96,6 @@
 
 <script>
 "use strict";
-/* ---------- Built-in algorithms (source shown/editable in the editor) ---------- */
 const ALGOS = {
 bubble:`// Bubble sort
 for (let i = 0; i < n - 1; i++) {
@@ -200,7 +196,7 @@ bogo:`// Bogo sort: shuffle the whole array until it comes out sorted
 const m = Array.from(a);
 const target = m.slice().sort((x, y) => x - y);
 const tries = 1 + Math.floor(Math.random() * 50);
-for (let t = 1; t <= tries; t++) {             // every try shuffles the whole array
+for (let t = 1; t <= tries; t++) {          
   const last = t === tries;
   for (let i = n - 1; i > 0; i--) {
     let j = Math.floor(Math.random() * (i + 1));
@@ -223,18 +219,29 @@ const SHORT = {bubble:"Bubble",insertion:"Insertion",selection:"Selection",shell
 const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d", {alpha:false});
 const codeEl = $("code"), errEl = $("err");
-const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
 let customCode = store.get("sortlab.custom") || CUSTOM_DEFAULT;
 
-/* ---------- State ---------- */
 let N = 128, arr = [], base = [], ops = null, opLen = 0, opIdx = 0, playing = false, finished = false;
 let reads = 0, writes = 0, sweep = -1, algo = "bubble", view = "bars", soundOn = true, raf = 0, acc = 0, hasRun = false, frameNo = 0;
-let hi = new Int32Array(0), hiN = 0, pal = [];   // hi: indices touched this frame (drawn white)
+let hi = new Int32Array(0), hiN = 0, pal = [];
 
 const padsEl = $("pads");
-for (const k in SHORT){ const b = document.createElement("button"); b.className="pad"; b.dataset.k=k; b.textContent=SHORT[k]; b.setAttribute("aria-pressed", k===algo); padsEl.appendChild(b); }
+for (const k in SHORT) {
+  const b = document.createElement("button");
+  b.className = "pad";
+  b.dataset.k = k;
+  b.textContent = SHORT[k];
+  b.setAttribute("aria-pressed", k === algo);
+  padsEl.appendChild(b);
+}
 function setAlgo(k){
-  algo = k; for (const c of padsEl.children) c.setAttribute("aria-pressed", c.dataset.k===k);
+  algo = k;
+  for (const c of padsEl.children) c.setAttribute("aria-pressed", c.dataset.k === k);
   $("nowName").textContent = SHORT[k] + " sort";
   codeEl.value = k === "custom" ? customCode : ALGOS[k];
   makeArray();
@@ -250,7 +257,7 @@ function makeArray(){
   if (shape === "nearly") for (let k = 0; k < Math.max(2, N/16); k++) { const i = Math.floor(Math.random()*N), j = Math.floor(Math.random()*N); [base[i],base[j]]=[base[j],base[i]]; }
   arr = base.slice(); ops = null; opLen = opIdx = 0; finished = false; playing = false; acc = 0; sweep = -1; reads = writes = 0;
   hi = new Int32Array(N + 8); hiN = 0;
-  pal = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,50%)");  // built once, not per frame
+  pal = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,50%)");
   setPlayUI("Run"); $("hint").style.display = hasRun ? "none" : ""; kick(); stats(true);
 }
 function setPlayUI(t){
@@ -258,7 +265,6 @@ function setPlayUI(t){
   $("playIc").setAttribute("d", t === "Pause" ? "M2.5 1.5h4v13h-4zM9.5 1.5h4v13h-4z" : "M3 1.5v13l11-6.5z");
 }
 
-/* ---------- Recording the algorithm run (typed array, grows as needed) ---------- */
 const MAX_OPS = 2_000_000;
 function record(src){
   let log = new Int32Array(1 << 16), len = 0; const a0 = base.slice(); const n = a0.length;
@@ -287,7 +293,6 @@ function prepare(){
   return true;
 }
 
-/* ---------- Audio: one oscillator for the whole session, pitch set per frame. Very cheap. ---------- */
 let ac = null, osc = null, gn = null, master = null, keepAlive = null;
 function silentWav(){
   const sr = 8000, n = 800, buf = new ArrayBuffer(44 + n*2), v = new DataView(buf);
@@ -316,7 +321,6 @@ function note(v, len){
   gn.gain.cancelScheduledValues(t); gn.gain.setTargetAtTime(1, t, 0.004); gn.gain.setTargetAtTime(0, t + (len || 0.035), 0.03);
 }
 
-/* ---------- Rendering ---------- */
 let W = 0, H = 0;
 function resize(){
   const d = Math.min(devicePixelRatio || 1, 2);
@@ -327,7 +331,7 @@ function draw(){
   if (view === "bars") drawBars(); else drawCircle();
 }
 function drawBars(){
-  const n = N, bw = W / n, gap = bw > 4 ? 1 : 0, top = 0.14 * H, hmax = H - top;   // top band stays clear for the title
+  const n = N, bw = W / n, gap = bw > 4 ? 1 : 0, top = 0.14 * H, hmax = H - top;
   for (let i = 0; i < n; i++){
     const v = arr[i], h = v / n * hmax, x = i * bw;
     ctx.fillStyle = (sweep >= 0 && i <= sweep) ? "#00ff6a" : pal[v];
@@ -349,7 +353,6 @@ function drawCircle(){
 const statEl = $("stat");
 function stats(force){ if (force || (frameNo & 3) === 0) statEl.textContent = reads.toLocaleString() + " comparisons · " + writes.toLocaleString() + " writes"; }
 
-/* ---------- Playback loop (runs only while playing or sweeping) ---------- */
 function opsPerFrame(){ const s = +$("speed").value / 100; return Math.max(0.05, Math.pow(10, s * 4 - 1.3)); }
 function speedLabel(){ const o = opsPerFrame() * 60; $("spLab").textContent = o < 1000 ? Math.round(o) + "/s" : (o/1000).toFixed(o < 10000 ? 1 : 0) + "k/s"; }
 function kick(){ if (!raf) raf = requestAnimationFrame(loop); }
@@ -379,7 +382,6 @@ function stepSweep(){
   if (sweep >= N - 1) { setPlayUI("Again"); try { navigator.vibrate && navigator.vibrate(15); } catch(e){} }
 }
 
-/* ---------- Controls ---------- */
 function openDrawer(o){ $("drawer").classList.toggle("open", o); $("menu").setAttribute("aria-expanded", o); }
 $("menu").onclick = () => openDrawer(!$("drawer").classList.contains("open"));
 function toggle(){
