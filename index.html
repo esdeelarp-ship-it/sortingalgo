@@ -3,128 +3,135 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#08090e">
+<meta name="theme-color" content="#d9dcd8">
 
 <title>Sort Lab</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap">
 <style>
-  /* Layout: full-height app. Header, canvas stage, stat strip, control sheet. Dark-first, committed single look. */
+  /* Concept: a small hardware sequencer. Pale instrument body, one dark screen inset into it,
+     tactile pads and keys with real pressed states, mono labels like silkscreen print. */
   :root{
-    --bg:#08090e; --bg2:#0e1018; --panel:#12141d; --panel2:#181b27; --line:#23273a;
-    --fg:#eef0f8; --dim:#8b91a8; --acc:#7c8cff; --acc2:#c06bff; --hot:#ff5c8a; --ok:#3be0a0;
-    --display:"Space Grotesk",system-ui,sans-serif; --body:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    color-scheme:dark;
+    --body:#d9dcd8; --body2:#e6e8e4; --edge:#b4b8b2; --ink:#15181a; --ink2:#5d625f;
+    --screen:#0c0e10; --glass:#9fb2bf; --sig:#ff5a1f; --ok:#58d6a0; --read:#f3f7f9;
+    --mono:"Geist Mono",ui-monospace,Menlo,Consolas,monospace; --sans:Geist,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color-scheme:light;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html{color-scheme:dark}
-  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font:15px/1.45 var(--body);overscroll-behavior:none}
-  body{
-    background:radial-gradient(900px 420px at 50% -120px,#1a1d3a 0%,transparent 70%),var(--bg);
-    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-    padding-block:10px 18px;display:flex;flex-direction:column;gap:12px;min-height:100vh;
-  }
-  header{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .brand{display:flex;align-items:center;gap:10px;min-width:0}
-  .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:end center;padding:6px 5px;gap:2px;grid-auto-flow:column;align-items:end}
-  .logo i{display:block;width:3px;background:#fff;border-radius:1px;opacity:.95}
-  h1{font:700 19px/1 var(--display);margin:0;letter-spacing:-.01em}
-  .now{text-align:right;min-width:0}
-  .now b{display:block;font:600 14px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .now span{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
-  #stage{position:relative;flex:1 1 260px;min-height:240px;border-radius:18px;background:#05060a;border:1px solid var(--line);overflow:hidden;box-shadow:0 12px 40px -18px #000, inset 0 0 60px -30px #3b4bff55}
+  html{color-scheme:light}
+  html,body{margin:0;min-height:100%;background:var(--body);color:var(--ink);font:15px/1.45 var(--sans);overscroll-behavior:none}
+  body{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 28px;min-height:100vh}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--body);z-index:10}
+  .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--body);padding-block:12px 12px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .brand{font:600 12px var(--mono);letter-spacing:.18em;text-transform:uppercase}
+  .now{font:500 12px var(--mono);color:var(--ink2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .now b{color:var(--ink);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+  #stage{position:relative;height:clamp(230px,40vh,430px);border-radius:10px;background:var(--screen);overflow:hidden;
+    box-shadow:inset 0 2px 10px #000c, 0 0 0 1px #00000040, 0 1px 0 #fff9;border:6px solid #1b1e21;border-width:5px}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-  #bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .1s linear}
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:9px 12px;min-width:0}
-  .stat small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
-  .stat b{font:600 18px/1.25 var(--display);font-variant-numeric:tabular-nums}
-  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:14px}
-  .chips{display:flex;gap:8px;overflow-x:auto;margin:0 -14px;padding:2px 14px;scrollbar-width:none;scroll-snap-type:x proximity}
-  .chips::-webkit-scrollbar{display:none}
-  .chip{flex:0 0 auto;scroll-snap-align:start;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font:500 13.5px var(--body);min-height:38px;cursor:pointer}
-  .chip[aria-pressed="true"]{color:#fff;border-color:transparent;background:linear-gradient(135deg,var(--acc),var(--acc2))}
-  .ctl{display:flex;align-items:center;gap:10px}
-  button{font:inherit;color:var(--fg);cursor:pointer}
-  #play{flex:1;min-height:52px;border:0;border-radius:16px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font:700 16px var(--display);letter-spacing:.01em;box-shadow:0 8px 24px -8px var(--acc)}
-  #play:active{transform:scale(.98)}
-  .ib{width:52px;height:52px;flex:0 0 auto;border-radius:16px;border:1px solid var(--line);background:var(--panel2);font-size:20px;display:grid;place-items:center}
-  .ib[aria-pressed="false"]{color:var(--dim);opacity:.7}
-  .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
-  .seg button{border:0;background:none;color:var(--dim);border-radius:9px;padding:8px 0;font:500 13px var(--body);min-height:36px}
-  .seg button[aria-pressed="true"]{background:var(--line);color:var(--fg)}
-  .sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px 16px}
-  .sl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim);min-width:0}
-  .sl span{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
-  .sl span em{font-style:normal;color:var(--fg)}
-  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:none;margin:0}
-  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:var(--line)}
-  input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:var(--line)}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8.5px;border-radius:50%;background:#fff;border:0;box-shadow:0 2px 8px #0008}
-  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:0}
-  select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:0 12px;min-height:44px;font:inherit;width:100%}
-  :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-  details{border-top:1px solid var(--line);padding-top:10px}
-  summary{cursor:pointer;color:var(--dim);font-weight:500;min-height:32px;display:flex;align-items:center}
-  .help{font-size:12.5px;color:var(--dim);margin:6px 0 10px}
-  .help code{color:var(--fg);background:#0a0c13;padding:1px 5px;border-radius:5px;font-size:12px}
-  textarea{width:100%;height:240px;background:#07080d;color:#cfdbff;border:1px solid var(--line);border-radius:12px;padding:12px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:vertical;tab-size:2}
-  .row2{display:flex;gap:8px;margin-top:10px}
-  .btn{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-weight:600}
-  .btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
-  #err{color:var(--hot);font-size:12.5px;white-space:pre-wrap;margin-top:6px}
+  .ro{position:absolute;left:10px;top:8px;font:500 11px/1.5 var(--mono);color:#6f7b83;letter-spacing:.06em;pointer-events:none;font-variant-numeric:tabular-nums}
+  .ro b{color:#c9d3d9;font-weight:500}
+  #bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--sig)}
+  .hint{position:absolute;inset:0;display:grid;place-items:center;font:500 11px var(--mono);letter-spacing:.2em;color:#5a656c;text-transform:uppercase;pointer-events:none;transition:opacity .3s}
+  .sheet{display:flex;flex-direction:column;gap:18px;padding-top:6px}
+  .lab{font:500 10.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin:0 0 7px}
+  .pads{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  .pad{position:relative;min-height:46px;border:0;border-radius:7px;background:var(--body2);color:var(--ink);font:500 11.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;
+    box-shadow:0 3px 0 var(--edge),0 4px 6px -2px #0003,inset 0 1px 0 #fff;transition:transform .06s,box-shadow .06s;padding:14px 2px 0;cursor:pointer}
+  .pad::before{content:"";position:absolute;left:50%;top:7px;width:14px;height:3px;margin-left:-7px;border-radius:2px;background:#bfc3be;transition:background .15s,box-shadow .15s}
+  .pad:active,.pad[aria-pressed="true"]{transform:translateY(2px);box-shadow:0 1px 0 var(--edge),inset 0 2px 4px #0002}
+  .pad[aria-pressed="true"]::before{background:var(--sig);box-shadow:0 0 8px var(--sig)}
+  .keys{display:flex;gap:9px}
+  .key{height:56px;border:0;border-radius:9px;background:var(--body2);color:var(--ink);cursor:pointer;display:grid;place-items:center;width:56px;flex:0 0 auto;
+    box-shadow:0 4px 0 var(--edge),0 6px 10px -4px #0004,inset 0 1px 0 #fff;transition:transform .06s,box-shadow .06s}
+  .key:active{transform:translateY(3px);box-shadow:0 1px 0 var(--edge),inset 0 2px 4px #0002}
+  .key[aria-pressed="false"] svg{opacity:.35}
+  #play{flex:1;width:auto;background:var(--sig);color:#fff;display:flex;gap:10px;align-items:center;justify-content:center;font:600 14px var(--mono);letter-spacing:.16em;text-transform:uppercase;
+    box-shadow:0 4px 0 #b83a0c,0 6px 12px -4px #b83a0c99,inset 0 1px 0 #ffffff55}
+  #play:active{box-shadow:0 1px 0 #b83a0c,inset 0 2px 4px #0004}
+  .tog{display:grid;grid-template-columns:repeat(3,1fr);border-radius:8px;background:#c6cac5;padding:3px;gap:3px;box-shadow:inset 0 1px 3px #0003}
+  .tog button{border:0;background:none;border-radius:6px;min-height:38px;font:500 11.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);cursor:pointer}
+  .tog button[aria-pressed="true"]{background:var(--body2);color:var(--ink);box-shadow:0 1px 2px #0004,inset 0 1px 0 #fff}
+  .sliders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 22px}
+  .sl{display:block;min-width:0}
+  .sl .lab{display:flex;justify-content:space-between;margin:0}
+  .sl .lab em{font-style:normal;color:var(--ink)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:none;margin:0;display:block}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:#9ea39d;box-shadow:inset 0 1px 1px #0004}
+  input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:#9ea39d}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:20px;margin-top:-8px;border-radius:5px;background:var(--body2);border:0;box-shadow:0 2px 0 var(--edge),0 3px 6px #0004,inset 0 1px 0 #fff, inset 0 0 0 1px #0001}
+  input[type=range]::-moz-range-thumb{width:30px;height:20px;border-radius:5px;background:var(--body2);border:0;box-shadow:0 2px 0 var(--edge),0 3px 6px #0004}
+  select{width:100%;height:34px;background:var(--body2);color:var(--ink);border:0;border-radius:6px;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:0 10px;box-shadow:0 2px 0 var(--edge),inset 0 1px 0 #fff;margin-top:0}
+  :focus-visible{outline:2px solid var(--sig);outline-offset:2px}
+  details{border-top:1px solid var(--edge);padding-top:12px}
+  summary{cursor:pointer;font:500 11.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;min-height:32px;display:flex;align-items:center;color:var(--ink2)}
+  .help{font-size:13px;color:var(--ink2);margin:8px 0 10px}
+  .help code{font:12px var(--mono);background:#cbcfca;padding:1px 5px;border-radius:4px;color:var(--ink)}
+  textarea{width:100%;height:250px;background:var(--screen);color:#c4d4dc;border:0;border-radius:8px;padding:12px;font:12.5px/1.55 var(--mono);resize:vertical;tab-size:2;box-shadow:inset 0 2px 8px #000a}
+  .row2{display:flex;gap:9px;margin-top:12px}
+  .btn{flex:1;min-height:44px;border:0;border-radius:8px;background:var(--body2);font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink);cursor:pointer;box-shadow:0 3px 0 var(--edge),inset 0 1px 0 #fff}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--edge)}
+  .btn.p{background:var(--ink);color:#fff;box-shadow:0 3px 0 #000}
+  #err{color:#b3260e;font:12px/1.5 var(--mono);white-space:pre-wrap;margin-top:8px}
   #err:empty{display:none}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="brand"><div class="logo" aria-hidden="true"><i style="height:7px"></i><i style="height:13px"></i><i style="height:10px"></i><i style="height:17px"></i></div><h1>Sort Lab</h1></div>
-  <div class="now"><b id="nowName">Bubble sort</b><span id="nowBig">O(n²)</span></div>
-</header>
-
-<div id="stage"><canvas id="cv"></canvas><div id="bar"></div></div>
-
-<div class="stats">
-  <div class="stat"><small>Reads</small><b id="sR">0</b></div>
-  <div class="stat"><small>Writes</small><b id="sW">0</b></div>
-  <div class="stat"><small>Progress</small><b id="sP">0%</b></div>
+<div class="top">
+  <header>
+    <div class="brand">Sort Lab</div>
+    <div class="now"><b id="nowName">Bubble</b> · <span id="nowBig">O(n²)</span></div>
+  </header>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div class="ro">RD <b id="sR">0</b>&nbsp; WR <b id="sW">0</b>&nbsp; <b id="sP">0%</b></div>
+    <div class="hint" id="hint">tap to run</div>
+    <div id="bar"></div>
+  </div>
 </div>
 
-<section class="sheet">
-  <div class="chips" id="chips" role="group" aria-label="Algorithm"></div>
-
-  <div class="ctl">
-    <button id="play">▶ Run</button>
-    <button id="shuf" class="ib" aria-label="Shuffle again" title="Reset">↺</button>
-    <button id="snd" class="ib" aria-pressed="true" aria-label="Sound" title="Sound">🔊</button>
+<div class="sheet">
+  <div>
+    <p class="lab">Algorithm</p>
+    <div class="pads" id="pads" role="group" aria-label="Algorithm"></div>
   </div>
 
-  <div class="seg" id="view" role="group" aria-label="View">
-    <button data-v="bars" aria-pressed="true">Bars</button>
-    <button data-v="dots" aria-pressed="false">Dots</button>
-    <button data-v="wheel" aria-pressed="false">Wheel</button>
+  <div class="keys">
+    <button id="play" class="key"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path id="playIc" d="M4 2.5v13l11-6.5z" fill="currentColor"/></svg><span id="playTx">Run</span></button>
+    <button id="shuf" class="key" aria-label="Reshuffle" title="Reshuffle"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 2.2-5.1"/><path d="M4 3.5v4.2h4.2"/></svg></button>
+    <button id="snd" class="key" aria-pressed="true" aria-label="Sound" title="Sound"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5h3.5L11 4.5v13l-4.5-4h-3.5z" fill="currentColor"/><path id="sndWave" d="M14.5 7.5a5 5 0 0 1 0 7M17 5a8.5 8.5 0 0 1 0 12"/></svg></button>
+  </div>
+
+  <div>
+    <p class="lab">View</p>
+    <div class="tog" id="view" role="group" aria-label="View">
+      <button data-v="bars" aria-pressed="true">Bars</button>
+      <button data-v="dots" aria-pressed="false">Dots</button>
+      <button data-v="wheel" aria-pressed="false">Wheel</button>
+    </div>
   </div>
 
   <div class="sliders">
-    <label class="sl"><span>Speed <em id="spLab"></em></span><input type="range" id="speed" min="0" max="100" value="55"></label>
-    <label class="sl"><span>Size <em id="nlab">64</em></span><input type="range" id="n" min="8" max="512" value="64"></label>
-    <label class="sl"><span>Volume <em id="vLab">60%</em></span><input type="range" id="vol" min="0" max="100" value="60"></label>
-    <label class="sl"><span>Starting order</span>
+    <label class="sl"><span class="lab">Speed <em id="spLab"></em></span><input type="range" id="speed" min="0" max="100" value="55"></label>
+    <label class="sl"><span class="lab">Count <em id="nlab">64</em></span><input type="range" id="n" min="8" max="512" value="64"></label>
+    <label class="sl"><span class="lab">Volume <em id="vLab">60</em></span><input type="range" id="vol" min="0" max="100" value="60"></label>
+    <label class="sl"><span class="lab">Start order</span>
       <select id="shape"><option value="shuffle">Shuffled</option><option value="reverse">Reversed</option><option value="nearly">Nearly sorted</option><option value="few">Few unique</option></select>
     </label>
   </div>
 
   <details id="editor">
-    <summary>✎ Write your own algorithm</summary>
+    <summary>Write your own algorithm</summary>
     <p class="help">Plain JavaScript. Sort array <code>a</code> in place (length <code>n</code>, values 1 to n). Reads, writes and swaps animate on their own. Helpers: <code>swap(i,j)</code> and <code>less(i,j)</code>.</p>
     <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Algorithm code"></textarea>
     <div class="row2"><button id="useCustom" class="btn p">Run my code</button><button id="reset" class="btn">Reset code</button></div>
     <div id="err" role="alert"></div>
   </details>
-</section>
+</div>
 
 <script>
 "use strict";
@@ -242,31 +249,30 @@ while (i < n) {
 }`;
 
 
-const BIGO = {bubble:"O(n²) · stable",insertion:"O(n²) · stable",selection:"O(n²) · unstable",shell:"≈O(n^1.3)",quick:"O(n log n) avg",merge:"O(n log n) · stable",heap:"O(n log n)",comb:"≈O(n log n)",cocktail:"O(n²) · stable",radix:"O(n·k)",bogo:"O((n+1)!)",custom:"your code"};
+const BIGO = {bubble:"O(n²)",insertion:"O(n²)",selection:"O(n²)",shell:"~O(n^1.3)",quick:"O(n log n)",merge:"O(n log n)",heap:"O(n log n)",comb:"~O(n log n)",cocktail:"O(n²)",radix:"O(n·k)",bogo:"O((n+1)!)",custom:"yours"};
+const SHORT = {bubble:"Bubble",insertion:"Insert",selection:"Select",shell:"Shell",quick:"Quick",merge:"Merge",heap:"Heap",comb:"Comb",cocktail:"Shaker",radix:"Radix",bogo:"Bogo",custom:"Custom"};
 const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
 const codeEl = $("code"), errEl = $("err");
-let customCode = CUSTOM_DEFAULT;
 const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
-customCode = store.get("sortlab.custom") || CUSTOM_DEFAULT;
+let customCode = store.get("sortlab.custom") || CUSTOM_DEFAULT;
 
 /* ---------- State ---------- */
 let N = 64, arr = [], base = [], ops = [], opIdx = 0, playing = false, finished = false;
-let reads = 0, writes = 0, hiR = new Set(), hiW = new Set(), sweep = -1;
-let algo = "bubble", view = "bars", soundOn = true;
+let reads = 0, writes = 0, sweep = -1;
+let disp = new Float32Array(N), eW = new Float32Array(N), eR = new Float32Array(N), eD = new Float32Array(N);
+let algo = "bubble", view = "bars", soundOn = true, raf = 0, acc = 0, hasRun = false;
 
-/* algorithm chips */
-const chipsEl = $("chips");
-for (const k in NAMES){ const b = document.createElement("button"); b.className="chip"; b.dataset.k=k; b.textContent=NAMES[k]; b.setAttribute("aria-pressed", k===algo); chipsEl.appendChild(b); }
+const padsEl = $("pads");
+for (const k in SHORT){ const b = document.createElement("button"); b.className="pad"; b.dataset.k=k; b.textContent=SHORT[k]; b.setAttribute("aria-pressed", k===algo); padsEl.appendChild(b); }
 function setAlgo(k){
-  algo = k; for (const c of chipsEl.children) c.setAttribute("aria-pressed", c.dataset.k===k);
-  $("nowName").textContent = NAMES[k].replace("★ ",""); $("nowBig").textContent = BIGO[k];
+  algo = k; for (const c of padsEl.children) c.setAttribute("aria-pressed", c.dataset.k===k);
+  $("nowName").textContent = SHORT[k]; $("nowBig").textContent = BIGO[k];
   codeEl.value = k === "custom" ? customCode : ALGOS[k];
   if (k === "bogo" && N > 8) { N = 8; $("n").value = 8; $("nlab").textContent = 8; }
-  const el = chipsEl.querySelector('[aria-pressed="true"]'); if (el && el.scrollIntoView) { try{ chipsEl.scrollTo({left: el.offsetLeft - 16, behavior:"smooth"}); }catch(e){} }
-  stopSound(); makeArray();
+  makeArray();
 }
-chipsEl.onclick = e => { const b = e.target.closest(".chip"); if (b) setAlgo(b.dataset.k); };
+padsEl.onclick = e => { const b = e.target.closest(".pad"); if (b) { buzz(6); initAudio(); setAlgo(b.dataset.k); note(N*(0.3+0.07*[...padsEl.children].indexOf(b)), (N*0.5)|0, false, 0.6); } };
 
 function makeArray(){
   const shape = $("shape").value;
@@ -275,16 +281,21 @@ function makeArray(){
   else if (shape === "few") base = base.map(v => Math.ceil(v / (N/5)) * Math.floor(N/5) || 1);
   if (shape === "shuffle" || shape === "few") for (let i = N-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [base[i],base[j]]=[base[j],base[i]]; }
   if (shape === "nearly") for (let k = 0; k < Math.max(2, N/16); k++) { const i = Math.floor(Math.random()*N), j = Math.floor(Math.random()*N); [base[i],base[j]]=[base[j],base[i]]; }
-  arr = base.slice(); ops = []; opIdx = 0; finished = false; playing = false; acc = 0;
-  reads = writes = 0; hiR.clear(); hiW.clear(); sweep = -1;
-  $("play").textContent = "▶ Run"; draw(); updStats();
+  arr = base.slice(); ops = []; opIdx = 0; finished = false; playing = false; acc = 0; sweep = -1;
+  reads = writes = 0;
+  disp = Float32Array.from(arr); eW = new Float32Array(N); eR = new Float32Array(N); eD = new Float32Array(N);
+  setPlayUI("Run"); $("hint").style.opacity = hasRun ? 0 : 1; kick(); updStats();
+}
+function setPlayUI(t){
+  $("playTx").textContent = t;
+  $("playIc").setAttribute("d", t === "Pause" ? "M3.5 2.5h4v13h-4zM10.5 2.5h4v13h-4z" : "M4 2.5v13l11-6.5z");
 }
 
 /* ---------- Recording the algorithm run ---------- */
 const MAX_OPS = 3_000_000;
 function record(src){
   const log = []; const a0 = base.slice(); const n = a0.length;
-  const push = (t,i,v) => { if (log.length > MAX_OPS*3) throw new Error("Too many operations (over "+MAX_OPS+"). Reduce the size or check for an infinite loop."); log.push(t,i,v); };
+  const push = (t,i,v) => { if (log.length > MAX_OPS*3) throw new Error("Too many operations (over "+MAX_OPS+"). Reduce the count or check for an infinite loop."); log.push(t,i,v); };
   const a = new Proxy(a0, {
     get(t,p){ if (typeof p === "string" && p !== "length" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return undefined; push(0,i,0); return t[i]; } return t[p]; },
     set(t,p,v){ if (typeof p === "string" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return true; if (typeof v !== "number" || !isFinite(v)) throw new Error("a["+i+"] must be set to a number, got "+v); push(1,i,v); t[i]=v; return true; } t[p]=v; return true; }
@@ -300,16 +311,17 @@ function prepare(){
   let res;
   try { res = record(src); }
   catch(e){ errEl.textContent = (e && e.message) || String(e); $("editor").open = true; return false; }
-  ops = res.log; opIdx = 0; arr = base.slice(); reads = writes = 0; hiR.clear(); hiW.clear(); sweep = -1;
+  ops = res.log; opIdx = 0; arr = base.slice(); disp = Float32Array.from(arr); reads = writes = 0; sweep = -1;
   let ok = true; for (let i = 1; i < res.final.length; i++) if (res.final[i-1] > res.final[i]) { ok = false; break; }
   if (!ok) { errEl.textContent = "The final array isn't sorted, so your algorithm has a bug. The animation will still play."; $("editor").open = true; }
   return true;
 }
 
 /* ---------- Audio ----------
-   The AudioContext is created and resumed inside the tap handler (required by iOS/Safari),
-   and a silent looping <audio> element lets Web Audio play even with the iPhone ring switch on silent. */
-let ac = null, master = null, lastNote = 0, keepAlive = null;
+   Context is created inside a tap (iOS requirement). A silent looping <audio> lets it play with the ring switch on silent.
+   Notes are snapped to a major pentatonic scale so any sort sounds musical; position pans left to right. */
+let ac = null, master = null, dry = null, wet = null, lastNote = 0, keepAlive = null;
+const SCALE = [0,2,4,7,9], STEPS = 20;
 function silentWav(){
   const sr = 8000, n = 800, buf = new ArrayBuffer(44 + n*2), v = new DataView(buf);
   const w = (o,s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
@@ -323,81 +335,95 @@ function initAudio(){
     if (!ac) {
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
       ac = new AC();
-      master = ac.createGain(); master.gain.value = $("vol").value / 100 * 0.5;
-      const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
+      master = ac.createGain(); master.gain.value = $("vol").value / 100 * 0.6;
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 6;
+      dry = ac.createGain(); wet = ac.createGain(); wet.gain.value = 0.35;
+      const conv = ac.createConvolver(), len = ac.sampleRate * 1.4, imp = ac.createBuffer(2, len, ac.sampleRate);
+      for (let c = 0; c < 2; c++){ const d = imp.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3.2); }
+      conv.buffer = imp;
+      dry.connect(master); dry.connect(conv); conv.connect(wet); wet.connect(master); master.connect(comp); comp.connect(ac.destination);
       try { keepAlive = new Audio(silentWav()); keepAlive.loop = true; keepAlive.setAttribute("playsinline",""); keepAlive.play().catch(()=>{}); } catch(e){}
     }
     if (ac.state !== "running") ac.resume();
-    // tiny inaudible blip primes some browsers
-    const o = ac.createOscillator(), g = ac.createGain(); g.gain.value = 0.0001; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.02);
   } catch(e){}
 }
-function note(v, loud){
+function freq(v){
+  const k = Math.min(STEPS - 1, Math.floor((v - 1) / N * STEPS));
+  const midi = 48 + Math.floor(k / 5) * 12 + SCALE[k % 5];
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+function note(v, i, loud, gainMul, long){
   if (!soundOn || !ac || ac.state !== "running") return;
   const t = ac.currentTime;
-  if (t - lastNote < 0.018) return;            // rate limit so fast runs sound like a shimmer, not a buzz
+  if (!long && t - lastNote < 0.024) return;
   lastNote = t;
-  const f = 110 * Math.pow(2, (v / N) * 4.2);  // about 4 octaves, exponential so steps sound even
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = loud ? "triangle" : "sine"; o.frequency.value = f;
-  const peak = loud ? 0.9 : 0.45, dur = loud ? 0.14 : 0.09;
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  const f = freq(v), dur = long ? 1.4 : loud ? 0.38 : 0.16, peak = (loud ? 0.55 : 0.22) * (gainMul || 1);
+  const g = ac.createGain(), lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = loud ? 4200 : 2600;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  const o1 = ac.createOscillator(), o2 = ac.createOscillator(), g2 = ac.createGain();
+  o1.type = "sine"; o1.frequency.value = f; o2.type = "triangle"; o2.frequency.value = f * 2.0; g2.gain.value = 0.18;
+  o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp);
+  let out = lp;
+  if (ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = (i / Math.max(1, N-1)) * 1.4 - 0.7; lp.connect(p); out = p; }
+  out.connect(dry);
+  o1.start(t); o2.start(t); o1.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
 }
-function stopSound(){ /* notes are self-terminating */ }
+function buzz(ms){ try { if (navigator.vibrate) navigator.vibrate(ms); } catch(e){} }
 
 /* ---------- Rendering ---------- */
-let W = 0, H = 0;
+let W = 0, H = 0, DPR = 1;
 function resize(){
-  const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2.5);
-  W = cv.width = Math.max(1, Math.round(r.width * d)); H = cv.height = Math.max(1, Math.round(r.height * d)); draw();
+  const r = cv.getBoundingClientRect(); DPR = Math.min(devicePixelRatio || 1, 2.5);
+  W = cv.width = Math.max(1, Math.round(r.width * DPR)); H = cv.height = Math.max(1, Math.round(r.height * DPR)); draw();
 }
-const hue = v => (v / N) * 300 + 215;   // blue → violet → pink → red, one sweep of the wheel
-function col(v, l){ return "hsl(" + (hue(v) % 360) + ",85%," + (l||60) + "%)"; }
+const lerp = (a,b,t) => a + (b-a)*t;
+// resting colour: cool grey that brightens with value, so the sorted ramp reads as a clean gradient
+function baseRGB(v){ const t = v / N; return [lerp(70,176,t), lerp(86,200,t), lerp(98,214,t)]; }
+function mix(c, d, t){ return [lerp(c[0],d[0],t), lerp(c[1],d[1],t), lerp(c[2],d[2],t)]; }
+const SIG = [255,90,31], RD = [243,247,249], OK = [88,214,160];
+function barColor(i){
+  let c = baseRGB(arr[i] || 1);
+  if (finished && i <= sweep) c = mix(c, OK, 0.5);
+  if (eD[i] > 0.01) c = mix(c, [190,255,225], Math.min(1, eD[i]));
+  if (eR[i] > 0.01) c = mix(c, RD, eR[i]);
+  if (eW[i] > 0.01) c = mix(c, SIG, Math.min(1, eW[i]*1.15));
+  return c;
+}
+const css = c => "rgb(" + (c[0]|0) + "," + (c[1]|0) + "," + (c[2]|0) + ")";
+function energy(i){ return Math.max(eW[i], eR[i]*0.7, eD[i]*0.6); }
 function draw(){
-  const n = arr.length;
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#05060a"; ctx.fillRect(0,0,W,H);
+  const n = arr.length; ctx.shadowBlur = 0; ctx.fillStyle = "#0c0e10"; ctx.fillRect(0,0,W,H);
+  // faint baseline grid
+  ctx.fillStyle = "#ffffff0b"; for (let g = 1; g < 4; g++) ctx.fillRect(0, H * g / 4, W, 1 * DPR);
   if (view === "bars") drawBars(n); else if (view === "dots") drawDots(n); else drawWheel(n);
 }
-function state(i){ return sweep >= 0 && i <= sweep ? 3 : hiW.has(i) ? 2 : hiR.has(i) ? 1 : 0; }
-function glow(s){ return s===3 ? "#3be0a0" : s===2 ? "#ff5c8a" : "#ffffff"; }
 function drawBars(n){
-  const pad = 10 * (W / 400), bw = (W - pad*2) / n, gap = bw > 5 ? bw * 0.14 : 0, r = Math.min(bw/2 - gap/2, 6 * (W/400));
-  const base0 = H - pad, hmax = H - pad*2 - 4;
+  const pad = 12 * DPR, bw = (W - pad*2) / n, gap = bw > 5 * DPR ? bw * 0.16 : 0, r = Math.min(bw/2 - gap/2, 3 * DPR), floor = H - pad, hmax = H - pad*2 - 14*DPR;
   for (let i = 0; i < n; i++){
-    const h = Math.max(2, arr[i] / N * hmax), x = pad + i*bw, w = Math.max(1, bw - gap), s = state(i);
-    if (s === 3) ctx.fillStyle = col(arr[i], 62);
-    else if (s === 2) ctx.fillStyle = "#ff5c8a";
-    else if (s === 1) ctx.fillStyle = "#fff";
-    else ctx.fillStyle = col(arr[i], 56);
-    if (s && s !== 3) { ctx.shadowColor = glow(s); ctx.shadowBlur = 18 * (W/400); } else ctx.shadowBlur = 0;
-    ctx.beginPath();
-    if (r > 1.5 && ctx.roundRect) ctx.roundRect(x, base0 - h, w, h, [r, r, 1, 1]); else ctx.rect(x, base0 - h, w, h);
-    ctx.fill();
+    const e = energy(i), pop = eD[i] * 0.05, h = Math.max(2*DPR, disp[i] / N * hmax * (1 + pop)), x = pad + i*bw, w = Math.max(1, bw - gap);
+    ctx.fillStyle = css(barColor(i));
+    if (e > 0.35) { ctx.shadowColor = eW[i] > eR[i] ? "#ff5a1f" : "#cfe9ff"; ctx.shadowBlur = 16 * DPR * e; } else ctx.shadowBlur = 0;
+    ctx.beginPath(); if (r > 1 && ctx.roundRect) ctx.roundRect(x, floor - h, w, h, [r,r,0,0]); else ctx.rect(x, floor - h, w, h); ctx.fill();
   }
   ctx.shadowBlur = 0;
-  if (sweep >= 0) { ctx.fillStyle = "#3be0a022"; ctx.fillRect(0,0,pad + (sweep+1)*bw,H); }
 }
 function drawDots(n){
-  const pad = 14 * (W/400), bw = (W - pad*2) / n, rad = Math.max(1.5*(W/400), Math.min(bw*0.45, 9*(W/400)));
+  const pad = 16 * DPR, bw = (W - pad*2) / n, rad = Math.max(1.6*DPR, Math.min(bw*0.42, 7*DPR));
   for (let i = 0; i < n; i++){
-    const x = pad + (i + .5) * bw, y = H - pad - arr[i] / N * (H - pad*2), s = state(i);
-    ctx.fillStyle = s===2 ? "#ff5c8a" : s===1 ? "#fff" : col(arr[i], 62);
-    if (s && s !== 3) { ctx.shadowColor = glow(s); ctx.shadowBlur = 16*(W/400); } else ctx.shadowBlur = 0;
-    ctx.beginPath(); ctx.arc(x, y, rad * (s && s!==3 ? 1.5 : 1), 0, 6.2832); ctx.fill();
+    const e = energy(i), x = pad + (i + .5) * bw, y = H - pad - disp[i] / N * (H - pad*2);
+    ctx.fillStyle = css(barColor(i));
+    if (e > 0.35) { ctx.shadowColor = eW[i] > eR[i] ? "#ff5a1f" : "#cfe9ff"; ctx.shadowBlur = 14*DPR*e; } else ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(x, y, rad * (1 + e*0.7), 0, 6.2832); ctx.fill();
   }
   ctx.shadowBlur = 0;
 }
 function drawWheel(n){
-  const cx = W/2, cy = H/2, R = Math.min(W, H)/2 - 10*(W/400), r0 = R * 0.12;
-  ctx.lineCap = "round";
-  const lw = Math.max(1.5, Math.min(R * 2 * Math.PI / n * 0.62, 12 * (W/400)));
-  ctx.lineWidth = lw;
+  const cx = W/2, cy = H/2, R = Math.min(W, H)/2 - 12*DPR, r0 = R * 0.14;
+  ctx.lineCap = "round"; ctx.lineWidth = Math.max(1.5*DPR, Math.min(R * 2 * Math.PI / n * 0.6, 10*DPR));
   for (let i = 0; i < n; i++){
-    const a = (i / n) * 6.2832 - 1.5708, s = state(i), rr = r0 + (arr[i] / N) * (R - r0);
-    ctx.strokeStyle = s===2 ? "#ff5c8a" : s===1 ? "#fff" : col(arr[i], 58);
-    if (s && s !== 3) { ctx.shadowColor = glow(s); ctx.shadowBlur = 14*(W/400); } else ctx.shadowBlur = 0;
+    const e = energy(i), a = (i / n) * 6.2832 - 1.5708, rr = r0 + (disp[i] / N) * (R - r0) * (1 + eD[i]*0.04);
+    ctx.strokeStyle = css(barColor(i));
+    if (e > 0.35) { ctx.shadowColor = eW[i] > eR[i] ? "#ff5a1f" : "#cfe9ff"; ctx.shadowBlur = 12*DPR*e; } else ctx.shadowBlur = 0;
     ctx.beginPath(); ctx.moveTo(cx + Math.cos(a)*r0, cy + Math.sin(a)*r0); ctx.lineTo(cx + Math.cos(a)*rr, cy + Math.sin(a)*rr); ctx.stroke();
   }
   ctx.shadowBlur = 0;
@@ -408,63 +434,75 @@ function updStats(){
   $("sP").textContent = p + "%"; $("bar").style.width = p + "%";
 }
 
-/* ---------- Playback ---------- */
+/* ---------- Playback / animation loop ---------- */
 function opsPerFrame(){ const s = +$("speed").value / 100; return Math.max(0.05, Math.pow(10, s * 4 - 1.3)); }
-function speedLabel(){ const o = opsPerFrame() * 60; $("spLab").textContent = o < 1000 ? Math.round(o) + " ops/s" : (o/1000).toFixed(o < 10000 ? 1 : 0) + "k ops/s"; }
-let acc = 0;
-function frame(){
-  if (!playing) return;
+function speedLabel(){ const o = opsPerFrame() * 60; $("spLab").textContent = o < 1000 ? Math.round(o) + "/s" : (o/1000).toFixed(o < 10000 ? 1 : 0) + "k/s"; }
+function kick(){ if (!raf) raf = requestAnimationFrame(loop); }
+function loop(){
+  raf = 0;
+  if (playing) stepOps();
+  if (finished && sweep < N - 1) stepSweep();
+  // ease displayed heights toward real values; decay highlights
+  let settling = false; const k = 0.42;
+  for (let i = 0; i < N; i++){
+    const d = arr[i] - disp[i];
+    if (Math.abs(d) > 0.02) { disp[i] += d * k; settling = true; } else disp[i] = arr[i];
+    if (eW[i] > 0.005) { eW[i] *= 0.86; settling = true; } else eW[i] = 0;
+    if (eR[i] > 0.005) { eR[i] *= 0.82; settling = true; } else eR[i] = 0;
+    if (eD[i] > 0.005) { eD[i] *= 0.9; settling = true; } else eD[i] = 0;
+  }
+  draw(); updStats();
+  if (playing || settling || (finished && sweep < N - 1)) kick();
+}
+function stepOps(){
   acc += opsPerFrame();
   let steps = Math.floor(acc); acc -= steps;
-  if (steps > 0) { hiR.clear(); hiW.clear(); }
-  let lastV = 0, lastW = false;
+  let lv = 0, li = 0, lw = false;
   while (steps-- > 0 && opIdx < ops.length){
     const t = ops[opIdx], i = ops[opIdx+1], v = ops[opIdx+2]; opIdx += 3;
-    if (t === 0) { reads++; hiR.add(i); lastV = arr[i]; lastW = false; }
-    else { writes++; arr[i] = v; hiW.add(i); lastV = v; lastW = true; }
+    if (t === 0) { reads++; eR[i] = 1; lv = arr[i]; li = i; lw = false; }
+    else { writes++; arr[i] = v; eW[i] = 1; lv = v; li = i; lw = true; }
   }
-  if (lastV) note(lastV, lastW);
-  if (opIdx >= ops.length) { playing = false; finish(); return; }
-  draw(); updStats();
-  requestAnimationFrame(frame);
+  if (lv) note(lv, li, lw);
+  if (opIdx >= ops.length) { playing = false; finished = true; sweep = -1; setPlayUI("Run"); }
 }
-function finish(){
-  hiR.clear(); hiW.clear(); sweep = -1; finished = true; updStats();
-  const per = Math.max(1, Math.ceil(N / 80));
-  const step = () => {
-    sweep = Math.min(N - 1, sweep + per); note(arr[sweep], true); draw();
-    if (sweep < N - 1) requestAnimationFrame(step); else { $("play").textContent = "↻ Run again"; }
-  };
-  step();
+function stepSweep(){
+  const per = Math.max(1, Math.ceil(N / 70));
+  for (let s = 0; s < per && sweep < N - 1; s++){ sweep++; eD[sweep] = 1; eR[sweep] = 0; eW[sweep] = 0; }
+  note(arr[sweep], sweep, true, 0.8);
+  if (sweep >= N - 1) {
+    setPlayUI("Again"); buzz([12,40,18]);
+    [1, N*0.35, N*0.6, N*0.9].forEach((v,j) => setTimeout(() => note(Math.max(1,v), j*N/4, true, 0.9, true), j*70));
+  }
 }
 
 /* ---------- Controls ---------- */
-$("play").onclick = () => {
-  initAudio();
-  if (playing) { playing = false; $("play").textContent = "▶ Resume"; return; }
-  if (finished) makeArray();
+function toggle(){
+  initAudio(); buzz(8);
+  if (playing) { playing = false; setPlayUI("Resume"); return; }
+  if (finished && sweep >= N - 1) makeArray();
+  if (finished) return;
   if (opIdx === 0 || ops.length === 0) { if (!prepare()) return; }
-  playing = true; $("play").textContent = "⏸ Pause"; requestAnimationFrame(frame);
-};
-$("shuf").onclick = () => makeArray();
+  hasRun = true; $("hint").style.opacity = 0;
+  playing = true; setPlayUI("Pause"); kick();
+}
+$("play").onclick = toggle;
+$("stage").onclick = toggle;
+$("shuf").onclick = () => { buzz(6); makeArray(); };
 $("shape").onchange = () => makeArray();
 $("n").oninput = e => { N = +e.target.value; $("nlab").textContent = N; makeArray(); };
 $("speed").oninput = speedLabel;
-$("vol").oninput = e => { $("vLab").textContent = e.target.value + "%"; if (master) master.gain.value = e.target.value / 100 * 0.5; };
-$("snd").onclick = () => { soundOn = !soundOn; $("snd").setAttribute("aria-pressed", soundOn); $("snd").textContent = soundOn ? "🔊" : "🔇"; if (soundOn) { initAudio(); note(N*0.5, true); } };
-$("view").onclick = e => { const b = e.target.closest("button"); if (!b) return; view = b.dataset.v; for (const x of $("view").children) x.setAttribute("aria-pressed", x === b); draw(); };
+$("vol").oninput = e => { $("vLab").textContent = e.target.value; if (master) master.gain.value = e.target.value / 100 * 0.6; };
+$("snd").onclick = () => { soundOn = !soundOn; $("snd").setAttribute("aria-pressed", soundOn); $("sndWave").style.display = soundOn ? "" : "none"; if (soundOn) { initAudio(); setTimeout(() => note(N*0.6, N>>1, true), 30); } };
+$("view").onclick = e => { const b = e.target.closest("button"); if (!b) return; buzz(5); view = b.dataset.v; for (const x of $("view").children) x.setAttribute("aria-pressed", x === b); kick(); };
 codeEl.oninput = () => { customCode = codeEl.value; store.set("sortlab.custom", customCode); };
-$("useCustom").onclick = () => {
-  customCode = codeEl.value; store.set("sortlab.custom", customCode);
-  setAlgo("custom"); $("play").click();
-};
+$("useCustom").onclick = () => { customCode = codeEl.value; store.set("sortlab.custom", customCode); setAlgo("custom"); toggle(); };
 $("reset").onclick = () => { customCode = CUSTOM_DEFAULT; codeEl.value = customCode; store.del("sortlab.custom"); };
 codeEl.addEventListener("keydown", e => {
   if (e.key === "Tab") { e.preventDefault(); codeEl.setRangeText("  ", codeEl.selectionStart, codeEl.selectionEnd, "end"); codeEl.dispatchEvent(new Event("input")); }
 });
 if (window.ResizeObserver) new ResizeObserver(resize).observe($("stage")); else addEventListener("resize", resize);
 
-/* init */
 speedLabel(); setAlgo("bubble"); resize();
 </script>
 </body>
