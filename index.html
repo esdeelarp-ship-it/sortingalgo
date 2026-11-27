@@ -195,15 +195,33 @@ for (let exp = 1; Math.floor(max / exp) > 0; exp *= 4) {
 bogo:`// Bogo sort: shuffle the whole array until it comes out sorted
 const m = Array.from(a);
 const target = m.slice().sort((x, y) => x - y);
-const tries = 1 + Math.floor(Math.random() * 50);
-for (let t = 1; t <= tries; t++) {          
-  const last = t === tries;
-  for (let i = n - 1; i > 0; i--) {
-    let j = Math.floor(Math.random() * (i + 1));
-    if (last) { j = m.indexOf(target[i]); if (j > i) j = i; }
-    if (j !== i) { swap(i, j); [m[i], m[j]] = [m[j], m[i]]; }
+
+function shuffled(list) {
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
   }
-}`
+  return out;
+}
+
+// turn the array into "want", touching positions in random order
+function rearrange(want) {
+  const done = new Array(n).fill(false);
+  for (const p of shuffled(Array.from({ length: n }, (_, i) => i))) {
+    if (m[p] !== want[p]) {
+      let j = 0;
+      while (done[j] || j === p || m[j] !== want[p]) j++;
+      swap(p, j);
+      [m[p], m[j]] = [m[j], m[p]];
+    }
+    done[p] = true;
+  }
+}
+
+const tries = 1 + Math.floor(Math.random() * 50);
+for (let t = 1; t < tries; t++) rearrange(shuffled(m));
+rearrange(target);`
 };
 const NAMES = {bubble:"Bubble sort",insertion:"Insertion sort",selection:"Selection sort",shell:"Shell sort",quick:"Quick sort",merge:"Merge sort",heap:"Heap sort",comb:"Comb sort",cocktail:"Cocktail shaker",radix:"Radix sort (LSD)",bogo:"Bogo (small n only)",custom:"★ Custom (my code)"};
 const CUSTOM_DEFAULT = `// Write your own! Sort array \`a\` in place.
