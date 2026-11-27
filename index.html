@@ -246,7 +246,7 @@ let customCode = store.get("sortlab.custom") || CUSTOM_DEFAULT;
 
 let N = 128, arr = [], base = [], ops = null, opLen = 0, opIdx = 0, playing = false, finished = false;
 let reads = 0, writes = 0, sweep = -1, algo = "bubble", view = "bars", soundOn = true, raf = 0, acc = 0, hasRun = false, frameNo = 0;
-let hi = new Int32Array(0), hiN = 0, pal = [];
+let hi = new Int32Array(0), hiN = 0, pal = [], dark = [];
 
 const padsEl = $("pads");
 for (const k in SHORT) {
@@ -276,6 +276,7 @@ function makeArray(){
   arr = base.slice(); ops = null; opLen = opIdx = 0; finished = false; playing = false; acc = 0; sweep = -1; reads = writes = 0;
   hi = new Int32Array(N + 8); hiN = 0;
   pal = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,50%)");
+  dark = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,22%)");
   setPlayUI("Run"); $("hint").style.display = hasRun ? "none" : ""; kick(); stats(true);
 }
 function setPlayUI(t){
@@ -355,8 +356,12 @@ function drawBars(){
     ctx.fillStyle = (sweep >= 0 && i <= sweep) ? "#00ff6a" : pal[v];
     ctx.fillRect(x, H - h, bw - gap, h);
   }
-  ctx.fillStyle = "#fff";
-  for (let k = 0; k < hiN; k++){ const i = hi[k], h = arr[i] / n * hmax; ctx.fillRect(i * bw, H - h, bw - gap, h); }
+  ctx.lineWidth = Math.max(1.5, Math.min(bw * 0.3, 3));
+  for (let k = 0; k < hiN; k++){
+    const i = hi[k], h = arr[i] / n * hmax, inset = ctx.lineWidth / 2;
+    ctx.strokeStyle = dark[arr[i]];
+    ctx.strokeRect(i * bw + inset, H - h + inset, Math.max(1, bw - gap - ctx.lineWidth), h - inset);
+  }
 }
 function drawCircle(){
   const n = N, cx = W / 2, cy = H / 2 + H * 0.04, R = Math.min(W, H) * 0.46, step = 6.2832 / n;
@@ -365,8 +370,12 @@ function drawCircle(){
     ctx.fillStyle = (sweep >= 0 && i <= sweep) ? "#00ff6a" : pal[arr[i]];
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a1); ctx.fill();
   }
-  ctx.fillStyle = "#fff";
-  for (let k = 0; k < hiN; k++){ const a0 = hi[k] * step - 1.5708; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + step + 0.012); ctx.fill(); }
+  ctx.lineWidth = 2;
+  for (let k = 0; k < hiN; k++){
+    const a0 = hi[k] * step - 1.5708;
+    ctx.strokeStyle = dark[arr[hi[k]]];
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + step + 0.012); ctx.closePath(); ctx.stroke();
+  }
 }
 const statEl = $("stat");
 function stats(force){ if (force || (frameNo & 3) === 0) statEl.textContent = reads.toLocaleString() + " comparisons · " + writes.toLocaleString() + " writes"; }
