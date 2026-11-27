@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Scoop Ball Crusher</title>
 <style>
-  :root { --bg:#000; --fg:#e8e8e8; --line:#fff; }
+  :root { --bg:#000; --fg:#e8e8e8; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px system-ui,sans-serif; }
   body { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:16px; box-sizing:border-box; }
   canvas { width:min(92vw,80vh); height:min(92vw,80vh); max-width:720px; max-height:720px; }
@@ -19,131 +19,197 @@
 <canvas id="c" width="720" height="720" aria-label="Scoop ball crusher simulation"></canvas>
 <div class="bar">
   <span>Balls: <b id="count">1</b></span>
-  <label>Spin <input id="spin" type="range" min="0.3" max="4" step="0.1" value="1.6"></label>
+  <label>Speed <input id="spin" type="range" min="0.3" max="3" step="0.1" value="1"></label>
   <button id="reset">Reset</button>
   <button id="pause">Pause</button>
 </div>
 <script>
 (() => {
   const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-  const W = cv.width, C = W / 2, ARENA = W * 0.47;
-  const R = 120, THICK = 14, GAP_MAX = Math.PI * 0.9;   // scoop ring radius, thickness, widest opening
-  const BALL_R = 6, MAX = 500, SPEED = 320, SPLIT = 3, CLOSE_RATE = 2.6;
-  const HUES = [205, 58, 290, 15, 150, 230, 95];     // generation colors
+  const W = cv.width, C = W / 2, ARENA = W * 0.47, TAU = Math.PI * 2;
+
+  // Two C-shaped arcs. Each is a piece of a circle of radius R that passes through the
+  // gear at the arena centre, and each swings rigidly around the gear. They turn at
+  // different rates, so they cross like scissors, close into a full ring, and re-open.
+  const R = 118, THICK = 14, SPAN = 3.3;          // ring radius, thickness, arc length (rad)
+  const SPIN = 1.0, OPEN = 1.5;                    // common turn rate, scissor rate (rad/s)
+  const BALL_R = 6, MAX = 1500, SPEED = 220, SPLIT = 4;
+  const REACH = THICK / 2 + BALL_R;
+  const HUES = [215, 58, 290, 350, 170, 100, 25, 240];   // one colour per generation
+
   const countEl = document.getElementById('count');
-  const spinEl = document.getElementById('spin');
-  let balls, angle, phase, gap, armed, paused = false, last = 0;
+  const speedEl = document.getElementById('spin');
+  let balls, fx, t, paused = false, last = 0;
+
+  const arcs = [{ s: -1, th: 0, w: 0 }, { s: 1, th: 0, w: 0 }];
 
   function reset() {
-    angle = 0; phase = 0; gap = GAP_MAX; armed = true;
-    balls = [{ x: C - 60, y: C + 90, vx: SPEED * 0.7, vy: -SPEED * 0.7, gen: 0 }];
+    t = 0; fx = [];
+    balls = [{ x: C - 250, y: C - 60, vx: SPEED * 0.95, vy: SPEED * 0.3, gen: 0, cool: 0 }];
   }
 
-  // Scoop: ring of radius R whose centre orbits the gear (at arena centre).
-  const ring = () => ({ x: C + R * Math.cos(angle), y: C + R * Math.sin(angle) });
-  // The opening faces away from the gear's direction of travel.
-  const inArc = a => {
-    // the gap is centred on the direction from the ring centre toward the gear
-    const d = Math.atan2(Math.sin(a - angle - Math.PI), Math.cos(a - angle - Math.PI));
-    return Math.abs(d) > gap / 2;
+  function poseArcs(speed) {
+    // arc A starts pointing up, arc B pointing down: the "3" shape in the video
+    arcs[0].th = (SPIN + OPEN) * t - Math.PI / 2; arcs[0].w = (SPIN + OPEN) * speed;
+    arcs[1].th = (SPIN - OPEN) * t + Math.PI / 2; arcs[1].w = (SPIN - OPEN) * speed;
+    for (const a of arcs) {
+      a.x = C + R * Math.cos(a.th); a.y = C + R * Math.sin(a.th);
+      a.g = a.th + Math.PI;                       // angle (seen from ring centre) of the gear
+    }
+  }
+  // is angle `a` (seen from the ring centre) on the solid part of the arc?
+  const solid = (arc, a) => {
+    const u = (((arc.s * (a - arc.g)) % TAU) + TAU) % TAU;
+    return u <= SPAN;
   };
 
-  function step(dt) {
-    const omega = +spinEl.value;
-    angle += omega * dt;
-    phase += CLOSE_RATE * dt;
-    gap = GAP_MAX * (0.5 + 0.5 * Math.cos(phase));      // opens and closes
-    const rc = ring();
+  function step(dt, speed) {
+    t += dt * speed;
+    poseArcs(speed);
     const born = [];
-    let closed = false;
-    if (gap < 0.08 && armed) { closed = true; armed = false; }
-    else if (gap > 0.5) armed = true;
+
     for (const b of balls) {
       b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.cool > 0) b.cool -= dt;
 
-      // arena wall
+      // arena wall (a little random jitter stops a lone ball repeating the same path)
       let dx = b.x - C, dy = b.y - C, d = Math.hypot(dx, dy);
       if (d > ARENA - BALL_R) {
         const nx = dx / d, ny = dy / d, dot = b.vx * nx + b.vy * ny;
-        if (dot > 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; }
-        if (dot > 0) { const j = (Math.random() - 0.5) * 0.7, c = Math.cos(j), s = Math.sin(j); [b.vx, b.vy] = [b.vx * c - b.vy * s, b.vx * s + b.vy * c]; } // jitter breaks periodic orbits
+        if (dot > 0) {
+          b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny;
+          const j = (Math.random() - 0.5) * 0.5, c = Math.cos(j), s = Math.sin(j);
+          [b.vx, b.vy] = [b.vx * c - b.vy * s, b.vx * s + b.vy * c];
+        }
         b.x = C + nx * (ARENA - BALL_R); b.y = C + ny * (ARENA - BALL_R);
       }
 
-      // scoop arc
-      dx = b.x - rc.x; dy = b.y - rc.y; d = Math.hypot(dx, dy);
-      const reach = THICK / 2 + BALL_R;
-      if (Math.abs(d - R) < reach && inArc(Math.atan2(dy, dx))) {
-        const nx = dx / d, ny = dy / d;
-        const side = d > R ? 1 : -1;
-        const sx = nx * side, sy = ny * side;
-        // surface velocity (rotation about the gear)
-        const px = b.x - C, py = b.y - C;
-        const svx = -omega * py, svy = omega * px;
+      // distance to each ring, and whether the ball touches that arc's solid part
+      const hit = [false, false], dist = [0, 0];
+      for (let i = 0; i < 2; i++) {
+        const a = arcs[i], ex = b.x - a.x, ey = b.y - a.y, e = Math.hypot(ex, ey);
+        dist[i] = e;
+        hit[i] = Math.abs(e - R) < REACH && solid(a, Math.atan2(ey, ex));
+      }
+
+      // crushed: touching one arc while inside the other arc's ring (caught between the blades)
+      const pinched = (hit[0] && dist[1] < R + REACH) || (hit[1] && dist[0] < R + REACH) ||
+                       (dist[0] < R - REACH && dist[1] < R - REACH);   // or inside the overlap of both rings
+
+      // bounce off whichever arcs are touched; arcs push the ball with their own motion
+      for (let i = 0; i < 2; i++) {
+        if (!hit[i]) continue;
+        const a = arcs[i], ex = b.x - a.x, ey = b.y - a.y, e = dist[i] || 1;
+        const side = e > R ? 1 : -1, sx = ex / e * side, sy = ey / e * side;
+        const svx = -a.w * (b.y - C), svy = a.w * (b.x - C);          // arc surface velocity here
         const rel = (b.vx - svx) * sx + (b.vy - svy) * sy;
         if (rel < 0) { b.vx -= 2 * rel * sx; b.vy -= 2 * rel * sy; }
-        b.x = rc.x + nx * (R + side * reach); b.y = rc.y + ny * (R + side * reach);
+        b.x = a.x + ex / e * (R + side * REACH); b.y = a.y + ey / e * (R + side * REACH);
       }
-      // the scoop snapping shut splits every ball it holds into SPLIT pieces
-      if (closed && Math.hypot(b.x - rc.x, b.y - rc.y) < R + reach) {
-        b.gen++;
+
+      if (pinched && b.cool <= 0) {
+        b.gen++; b.cool = 0.5;
+        fx.push({ x: b.x, y: b.y, age: 0 });
         for (let k = 1; k < SPLIT && balls.length + born.length < MAX; k++) {
-          const a = Math.random() * Math.PI * 2;
-          born.push({ x: b.x, y: b.y, vx: Math.cos(a) * SPEED, vy: Math.sin(a) * SPEED, gen: b.gen });
+          const ang = Math.random() * TAU;
+          born.push({ x: b.x + Math.cos(ang) * 3, y: b.y + Math.sin(ang) * 3,
+                      vx: Math.cos(ang) * SPEED, vy: Math.sin(ang) * SPEED, gen: b.gen, cool: 0.5 });
         }
       }
-      // keep speed lively but bounded
-      const sp = Math.hypot(b.vx, b.vy);
-      if (sp > 1) { const t = Math.min(Math.max(sp, SPEED * 0.8), SPEED * 1.6) / sp; b.vx *= t; b.vy *= t; }
     }
     if (born.length) balls.push(...born);
-    countEl.textContent = balls.length;
+
+    collideBalls();
+
+    // few balls fly at a steady pace; a crowd loses energy and packs together
+    const n = balls.length, drag = Math.min(1, Math.max(0, (n - 150) / 300)) * 2 * dt;
+    for (const b of balls) {
+      if (n < 150) {
+        const sp = Math.hypot(b.vx, b.vy) || 1, k = SPEED / sp;
+        b.vx *= Math.min(k, 1.5); b.vy *= Math.min(k, 1.5);
+      } else { b.vx *= 1 - drag; b.vy *= 1 - drag; }
+    }
+    for (const e of fx) e.age += dt;
+    fx = fx.filter(e => e.age < 0.5);
+    countEl.textContent = n;
+  }
+
+  // ball-vs-ball collisions through a uniform grid
+  const CELL = BALL_R * 2, COLS = Math.ceil(W / CELL) + 1;
+  function collideBalls() {
+    const head = new Int32Array(COLS * COLS).fill(-1), next = new Int32Array(balls.length);
+    balls.forEach((b, i) => {
+      const cx = Math.max(0, Math.min(COLS - 1, (b.x / CELL) | 0)), cy = Math.max(0, Math.min(COLS - 1, (b.y / CELL) | 0));
+      next[i] = head[cy * COLS + cx]; head[cy * COLS + cx] = i;
+    });
+    for (let i = 0; i < balls.length; i++) {
+      const a = balls[i], cx = Math.max(0, Math.min(COLS - 1, (a.x / CELL) | 0)), cy = Math.max(0, Math.min(COLS - 1, (a.y / CELL) | 0));
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+        const gx = cx + ox, gy = cy + oy;
+        if (gx < 0 || gy < 0 || gx >= COLS || gy >= COLS) continue;
+        for (let j = head[gy * COLS + gx]; j !== -1; j = next[j]) {
+          if (j <= i) continue;
+          const b = balls[j], dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy, m = BALL_R * 2;
+          if (d2 >= m * m || d2 === 0) continue;
+          const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, push = (m - d) / 2;
+          a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+          const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          if (rel < 0) { a.vx += rel * nx; a.vy += rel * ny; b.vx -= rel * nx; b.vy -= rel * ny; }
+        }
+      }
+    }
   }
 
   function drawGear(x, y, r) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle * 2);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(t * 2);
     ctx.fillStyle = '#d8d8d8'; ctx.beginPath();
     for (let i = 0; i < 16; i++) {
-      const a0 = i / 16 * Math.PI * 2, a1 = (i + 0.5) / 16 * Math.PI * 2;
-      const rr = i % 2 ? r * 0.8 : r;
-      ctx.lineTo(Math.cos(a0) * rr, Math.sin(a0) * rr);
-      ctx.lineTo(Math.cos(a1) * rr, Math.sin(a1) * rr);
+      const a0 = i / 16 * TAU, a1 = (i + 0.5) / 16 * TAU, rr = i % 2 ? r * 0.8 : r;
+      ctx.lineTo(Math.cos(a0) * rr, Math.sin(a0) * rr); ctx.lineTo(Math.cos(a1) * rr, Math.sin(a1) * rr);
     }
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#666'; ctx.beginPath(); ctx.arc(0, 0, r * 0.3, 0, 7); ctx.fill();
+    ctx.fillStyle = '#666'; ctx.beginPath(); ctx.arc(0, 0, r * 0.3, 0, TAU); ctx.fill();
     ctx.restore();
   }
 
   function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, W);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(C, C, ARENA, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(C, C, ARENA, 0, TAU); ctx.stroke();
 
-    const rc = ring();
-    ctx.strokeStyle = '#8a8a8a'; ctx.lineWidth = THICK; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(rc.x, rc.y, R, angle + Math.PI + gap / 2, angle + Math.PI - gap / 2 + Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = '#b5b5b5'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(rc.x, rc.y, R - 3, angle + Math.PI + gap / 2 + 0.1, angle + Math.PI - gap / 2 + Math.PI * 2 - 0.1); ctx.stroke();
-
+    for (const a of arcs) {
+      const start = a.s < 0 ? a.g - SPAN : a.g;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#8a8a8a'; ctx.lineWidth = THICK;
+      ctx.beginPath(); ctx.arc(a.x, a.y, R, start, start + SPAN); ctx.stroke();
+      ctx.strokeStyle = '#b8b8b8'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(a.x, a.y, R - 3, start + 0.04, start + SPAN - 0.04); ctx.stroke();
+    }
     drawGear(C, C, 20);
 
     for (const b of balls) {
       const h = HUES[b.gen % HUES.length];
       const g = ctx.createRadialGradient(b.x - 2, b.y - 2, 1, b.x, b.y, BALL_R);
       g.addColorStop(0, `hsl(${h} 90% 80%)`); g.addColorStop(1, `hsl(${h} 85% 42%)`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, 7); ctx.fill();
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, TAU); ctx.fill();
+    }
+    // crush flash
+    for (const e of fx) {
+      const k = e.age / 0.5;
+      ctx.strokeStyle = `rgba(255,255,255,${1 - k})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(e.x, e.y, 8 + k * 26, 0, TAU); ctx.stroke();
     }
   }
 
-  function loop(t) {
-    const dt = Math.min((t - last) / 1000 || 0, 0.03); last = t;
-    if (!paused) { const n = 3; for (let i = 0; i < n; i++) step(dt / n); }
+  function loop(ts) {
+    const dt = Math.min((ts - last) / 1000 || 0, 0.03); last = ts;
+    if (!paused) { const n = 3; for (let i = 0; i < n; i++) step(dt / n, +speedEl.value); }
     draw(); requestAnimationFrame(loop);
   }
 
   document.getElementById('reset').onclick = reset;
   document.getElementById('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'Play' : 'Pause'; };
-  reset(); requestAnimationFrame(loop);
+  reset(); poseArcs(1); requestAnimationFrame(loop);
 })();
 </script>
 </body>
