@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+
+<title>Sort Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root{--bg:#000;--fg:#fff;--dim:#9a9a9a;--panel:#141414;--line:#2a2a2a;--btn:#1f1f1f;--hot:#ff3b30;color-scheme:dark;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{color-scheme:dark}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.4 var(--sans);overscroll-behavior:none;overflow:hidden;touch-action:manipulation}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hud{position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 14px);pointer-events:none;text-shadow:0 1px 2px #000}
+  .hud h1{margin:0;font:800 26px/1.1 var(--sans);letter-spacing:-.01em;text-transform:uppercase}
+  .hud p{margin:4px 0 0;font:500 13px var(--mono);color:#d8d8d8;font-variant-numeric:tabular-nums}
+  .hint{position:fixed;left:0;right:0;top:50%;text-align:center;font:600 14px var(--sans);letter-spacing:.2em;text-transform:uppercase;color:#fff;opacity:.8;pointer-events:none;text-shadow:0 1px 3px #000}
+  .dock{position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;gap:10px}
+  .b{height:52px;min-width:52px;border:0;border-radius:26px;background:#000a;backdrop-filter:none;color:#fff;font:700 14px var(--sans);display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;cursor:pointer;border:1px solid #ffffff30}
+  .b:active{background:#ffffff30}
+  .b.main{flex:1;background:#fff;color:#000;border-color:#fff}
+  .b[aria-pressed="false"] svg{opacity:.4}
+  .drawer{position:fixed;left:0;right:0;bottom:0;max-height:74%;overflow:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+    padding:14px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 82px) max(16px,env(safe-area-inset-left,0px));transform:translateY(105%);transition:transform .22s ease;z-index:5}
+  .drawer.open{transform:none}
+  .dock{z-index:6}
+  .lab{font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
+  .pads{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .pad{min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--btn);color:#fff;font:600 14px var(--sans);cursor:pointer}
+  .pad[aria-pressed="true"]{background:#fff;color:#000;border-color:#fff}
+  .sliders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px;margin-bottom:16px}
+  .sl{display:block;min-width:0}
+  .sl .lab{display:flex;justify-content:space-between;margin:0}
+  .sl .lab em{font-style:normal;color:#fff}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:32px;background:none;margin:0;display:block}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:#3a3a3a}
+  input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:#3a3a3a}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-9px;border-radius:50%;background:#fff;border:0}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:0}
+  select{width:100%;height:36px;background:var(--btn);color:#fff;border:1px solid var(--line);border-radius:8px;font:14px var(--sans);padding:0 8px}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  details{border-top:1px solid var(--line);padding-top:10px}
+  summary{cursor:pointer;color:var(--dim);font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;min-height:32px;display:flex;align-items:center}
+  .help{font-size:13px;color:var(--dim);margin:8px 0 10px}
+  .help code{font:12px var(--mono);background:#000;padding:1px 5px;border-radius:4px;color:#fff}
+  textarea{width:100%;height:230px;background:#000;color:#cfe3ff;border:1px solid var(--line);border-radius:8px;padding:10px;font:12.5px/1.5 var(--mono);resize:vertical;tab-size:2}
+  .row2{display:flex;gap:8px;margin-top:10px}
+  .btn{flex:1;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--btn);color:#fff;font:600 13px var(--sans);cursor:pointer}
+  .btn.p{background:#fff;color:#000;border-color:#fff}
+  #err{color:#ff6b5e;font:12px/1.5 var(--mono);white-space:pre-wrap;margin-top:8px}
+  #err:empty{display:none}
+  :focus-visible{outline:2px solid #fff;outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+<div class="hud"><h1 id="nowName">Bubble sort</h1><p id="stat">0 comparisons · 0 writes</p></div>
+<div class="hint" id="hint">tap to start</div>
+<input type="file" id="file" accept="image/*" hidden>
+
+<div class="dock">
+  <button id="play" class="b main"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path id="playIc" d="M3 1.5v13l11-6.5z" fill="currentColor"/></svg><span id="playTx">Run</span></button>
+  <button id="shuf" class="b" aria-label="Shuffle again"><svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 2.2-5.1"/><path d="M4 3.5v4.2h4.2"/></svg></button>
+  <button id="snd" class="b" aria-pressed="true" aria-label="Sound"><svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5h3.5L11 4.5v13l-4.5-4h-3.5z" fill="currentColor"/><path id="sndWave" d="M14.5 7.5a5 5 0 0 1 0 7M17 5a8.5 8.5 0 0 1 0 12"/></svg></button>
+  <button id="menu" class="b" aria-label="Settings" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 22 22" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h14M4 11h14M4 16h14"/></svg></button>
+</div>
+
+<div class="drawer" id="drawer">
+  <p class="lab">Algorithm</p>
+  <div class="pads" id="pads" role="group" aria-label="Algorithm"></div>
+  <p class="lab">View</p>
+  <div class="seg" id="view" role="group" aria-label="View">
+    <button class="pad" data-v="bars" aria-pressed="true">Bars</button>
+    <button class="pad" data-v="circle" aria-pressed="false">Circle</button>
+    <button class="pad" data-v="photo" aria-pressed="false">Photo</button>
+  </div>
+  <div class="sliders">
+    <label class="sl"><span class="lab">Speed <em id="spLab"></em></span><input type="range" id="speed" min="0" max="100" value="55"></label>
+    <label class="sl"><span class="lab">Count <em id="nlab">128</em></span><input type="range" id="n" min="8" max="512" value="128"></label>
+    <label class="sl"><span class="lab">Volume <em id="vLab">50</em></span><input type="range" id="vol" min="0" max="100" value="50"></label>
+    <label class="sl"><span class="lab">Photo sorts by</span>
+      <select id="pmode"><option value="restore">Original order</option><option value="bright">Brightness</option></select>
+    </label>
+    <label class="sl"><span class="lab">Photo strips</span>
+      <select id="porient"><option value="cols">Columns</option><option value="rows">Rows</option></select>
+    </label>
+    <label class="sl"><span class="lab">Start order</span>
+      <select id="shape"><option value="shuffle">Shuffled</option><option value="reverse">Reversed</option><option value="nearly">Nearly sorted</option><option value="few">Few unique</option></select>
+    </label>
+  </div>
+  <button class="btn" id="upload" style="width:100%;margin-bottom:16px">Upload a photo</button>
+  <details id="editor">
+    <summary>Write your own algorithm</summary>
+    <p class="help">Plain JavaScript. Sort array <code>a</code> in place (length <code>n</code>, values 1 to n). Reads and writes animate on their own. Helpers: <code>swap(i,j)</code> and <code>less(i,j)</code>.</p>
+    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Algorithm code"></textarea>
+    <div class="row2"><button id="useCustom" class="btn p">Run my code</button><button id="reset" class="btn">Reset code</button></div>
+    <div id="err" role="alert"></div>
+  </details>
+</div>
+
+<script>
+"use strict";
+const ALGOS = {
+bubble:`// Bubble sort
+for (let i = 0; i < n - 1; i++) {
+  let swapped = false;
+  for (let j = 0; j < n - 1 - i; j++) {
+    if (a[j] > a[j + 1]) { swap(j, j + 1); swapped = true; }
+  }
+  if (!swapped) break;
+}`,
+insertion:`// Insertion sort
+for (let i = 1; i < n; i++) {
+  const key = a[i];
+  let j = i - 1;
+  while (j >= 0 && a[j] > key) { a[j + 1] = a[j]; j--; }
+  a[j + 1] = key;
+}`,
+selection:`// Selection sort
+for (let i = 0; i < n - 1; i++) {
+  let m = i;
+  for (let j = i + 1; j < n; j++) if (a[j] < a[m]) m = j;
+  if (m !== i) swap(i, m);
+}`,
+shell:`// Shell sort
+for (let gap = n >> 1; gap > 0; gap >>= 1) {
+  for (let i = gap; i < n; i++) {
+    const t = a[i];
+    let j = i;
+    while (j >= gap && a[j - gap] > t) { a[j] = a[j - gap]; j -= gap; }
+    a[j] = t;
+  }
+}`,
+quick:`// Quick sort (Hoare-ish, middle pivot)
+function qs(lo, hi) {
+  if (lo >= hi) return;
+  const p = a[(lo + hi) >> 1];
+  let i = lo, j = hi;
+  while (i <= j) {
+    while (a[i] < p) i++;
+    while (a[j] > p) j--;
+    if (i <= j) { swap(i, j); i++; j--; }
+  }
+  qs(lo, j); qs(i, hi);
+}
+qs(0, n - 1);`,
+merge:`// Merge sort (top-down, uses temp array)
+const tmp = new Array(n);
+function ms(lo, hi) {
+  if (hi - lo < 1) return;
+  const mid = (lo + hi) >> 1;
+  ms(lo, mid); ms(mid + 1, hi);
+  let i = lo, j = mid + 1, k = lo;
+  while (i <= mid && j <= hi) tmp[k++] = a[i] <= a[j] ? a[i++] : a[j++];
+  while (i <= mid) tmp[k++] = a[i++];
+  while (j <= hi) tmp[k++] = a[j++];
+  for (k = lo; k <= hi; k++) a[k] = tmp[k];
+}
+ms(0, n - 1);`,
+heap:`// Heap sort
+function sift(start, end) {
+  let root = start;
+  while (2 * root + 1 <= end) {
+    let c = 2 * root + 1;
+    if (c + 1 <= end && a[c] < a[c + 1]) c++;
+    if (a[root] < a[c]) { swap(root, c); root = c; } else return;
+  }
+}
+for (let s = (n >> 1) - 1; s >= 0; s--) sift(s, n - 1);
+for (let e = n - 1; e > 0; e--) { swap(0, e); sift(0, e - 1); }`,
+comb:`// Comb sort
+let gap = n, sorted = false;
+while (!sorted) {
+  gap = Math.floor(gap / 1.3);
+  if (gap <= 1) { gap = 1; sorted = true; }
+  for (let i = 0; i + gap < n; i++)
+    if (a[i] > a[i + gap]) { swap(i, i + gap); sorted = false; }
+}`,
+cocktail:`// Cocktail shaker sort
+let lo = 0, hi = n - 1, sw = true;
+while (sw) {
+  sw = false;
+  for (let i = lo; i < hi; i++) if (a[i] > a[i + 1]) { swap(i, i + 1); sw = true; }
+  hi--;
+  for (let i = hi; i > lo; i--) if (a[i] < a[i - 1]) { swap(i, i - 1); sw = true; }
+  lo++;
+}`,
+radix:`// Radix sort (LSD, base 4)
+let max = 0;
+for (let i = 0; i < n; i++) if (a[i] > max) max = a[i];
+const out = new Array(n);
+for (let exp = 1; Math.floor(max / exp) > 0; exp *= 4) {
+  const cnt = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) cnt[Math.floor(a[i] / exp) % 4]++;
+  for (let d = 1; d < 4; d++) cnt[d] += cnt[d - 1];
+  for (let i = n - 1; i >= 0; i--) { const v = a[i]; out[--cnt[Math.floor(v / exp) % 4]] = v; }
+  for (let i = 0; i < n; i++) a[i] = out[i];
+}`,
+bogo:`// Bogo sort: shuffle the whole array until it comes out sorted
+const m = Array.from(a);
+const target = m.slice().sort((x, y) => x - y);
+
+function shuffled(list) {
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// turn the array into "want", touching positions in random order
+function rearrange(want) {
+  const done = new Array(n).fill(false);
+  for (const p of shuffled(Array.from({ length: n }, (_, i) => i))) {
+    if (m[p] !== want[p]) {
+      let j = 0;
+      while (done[j] || j === p || m[j] !== want[p]) j++;
+      swap(p, j);
+      [m[p], m[j]] = [m[j], m[p]];
+    }
+    done[p] = true;
+  }
+}
+
+const tries = 1 + Math.floor(Math.random() * 50);
+for (let t = 1; t < tries; t++) rearrange(shuffled(m));
+rearrange(target);`
+};
+const NAMES = {bubble:"Bubble sort",insertion:"Insertion sort",selection:"Selection sort",shell:"Shell sort",quick:"Quick sort",merge:"Merge sort",heap:"Heap sort",comb:"Comb sort",cocktail:"Cocktail shaker",radix:"Radix sort (LSD)",bogo:"Bogo (small n only)",custom:"★ Custom (my code)"};
+const CUSTOM_DEFAULT = `// Write your own! Sort array \`a\` in place.
+// Example: gnome sort
+let i = 0;
+while (i < n) {
+  if (i === 0 || a[i] >= a[i - 1]) i++;
+  else { swap(i, i - 1); i--; }
+}`;
+
+
+const SHORT = {bubble:"Bubble",insertion:"Insertion",selection:"Selection",shell:"Shell",quick:"Quick",merge:"Merge",heap:"Heap",comb:"Comb",cocktail:"Cocktail",radix:"Radix",bogo:"Bogo",custom:"Custom"};
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d", {alpha:false});
+const codeEl = $("code"), errEl = $("err");
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+let customCode = store.get("sortlab.custom") || CUSTOM_DEFAULT;
+
+let N = 128, arr = [], base = [], ops = null, opLen = 0, opIdx = 0, playing = false, finished = false;
+let reads = 0, writes = 0, sweep = -1, algo = "bubble", view = "bars", soundOn = true, raf = 0, acc = 0, hasRun = false, frameNo = 0;
+let hi = new Int32Array(0), hiN = 0, pal = [], dark = [];
+let photo = null, photoCv = null, stripOf = new Int32Array(0);
+
+const padsEl = $("pads");
+for (const k in SHORT) {
+  const b = document.createElement("button");
+  b.className = "pad";
+  b.dataset.k = k;
+  b.textContent = SHORT[k];
+  b.setAttribute("aria-pressed", k === algo);
+  padsEl.appendChild(b);
+}
+function setAlgo(k){
+  algo = k;
+  for (const c of padsEl.children) c.setAttribute("aria-pressed", c.dataset.k === k);
+  $("nowName").textContent = SHORT[k] + " sort";
+  codeEl.value = k === "custom" ? customCode : ALGOS[k];
+  makeArray();
+}
+padsEl.onclick = e => { const b = e.target.closest(".pad"); if (b) setAlgo(b.dataset.k); };
+
+function makeArray(){
+  const shape = $("shape").value;
+  base = Array.from({length:N}, (_, i) => i + 1);
+  if (shape === "reverse") base.reverse();
+  else if (shape === "few") base = base.map(v => Math.ceil(v / (N/5)) * Math.floor(N/5) || 1);
+  if (shape === "shuffle" || shape === "few") for (let i = N-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [base[i],base[j]]=[base[j],base[i]]; }
+  if (shape === "nearly") for (let k = 0; k < Math.max(2, N/16); k++) { const i = Math.floor(Math.random()*N), j = Math.floor(Math.random()*N); [base[i],base[j]]=[base[j],base[i]]; }
+  arr = base.slice(); ops = null; opLen = opIdx = 0; finished = false; playing = false; acc = 0; sweep = -1; reads = writes = 0;
+  hi = new Int32Array(N + 8); hiN = 0;
+  pal = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,50%)");
+  dark = Array.from({length:N + 1}, (_, v) => "hsl(" + Math.round(v / N * 320) + ",100%,22%)");
+  buildMap();
+  setPlayUI("Run"); $("hint").style.display = hasRun ? "none" : ""; kick(); stats(true);
+}
+function setPlayUI(t){
+  $("playTx").textContent = t;
+  $("playIc").setAttribute("d", t === "Pause" ? "M2.5 1.5h4v13h-4zM9.5 1.5h4v13h-4z" : "M3 1.5v13l11-6.5z");
+}
+
+const MAX_OPS = 2_000_000;
+function record(src){
+  let log = new Int32Array(1 << 16), len = 0; const a0 = base.slice(); const n = a0.length;
+  const push = (t,i,v) => {
+    if (len + 3 > log.length) { if (len / 3 > MAX_OPS) throw new Error("Too many operations (over " + MAX_OPS + "). Reduce the count or check for an infinite loop."); const g = new Int32Array(log.length * 2); g.set(log); log = g; }
+    log[len++] = t; log[len++] = i; log[len++] = v;
+  };
+  const a = new Proxy(a0, {
+    get(t,p){ if (typeof p === "string" && p !== "length" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return undefined; push(0,i,0); return t[i]; } return t[p]; },
+    set(t,p,v){ if (typeof p === "string" && /^-?\d+$/.test(p)) { const i = +p; if (i < 0 || i >= n) return true; if (typeof v !== "number" || !isFinite(v)) throw new Error("a["+i+"] must be set to a number, got "+v); push(1,i,v); t[i]=v; return true; } t[p]=v; return true; }
+  });
+  const swap = (i,j) => { const x = a[i], y = a[j]; a[i] = y; a[j] = x; };
+  const less = (i,j) => a[i] < a[j];
+  new Function("a","n","swap","less",'"use strict";\n'+src)(a,n,swap,less);
+  return {log, len, final:a0};
+}
+function prepare(){
+  errEl.textContent = "";
+  const src = algo === "custom" ? customCode : ALGOS[algo];
+  let res;
+  try { res = record(src); }
+  catch(e){ errEl.textContent = (e && e.message) || String(e); openDrawer(true); $("editor").open = true; return false; }
+  ops = res.log; opLen = res.len; opIdx = 0; arr = base.slice(); reads = writes = 0; sweep = -1;
+  let ok = true; for (let i = 1; i < res.final.length; i++) if (res.final[i-1] > res.final[i]) { ok = false; break; }
+  if (!ok) { errEl.textContent = "The final array isn't sorted, so your algorithm has a bug. The animation will still play."; openDrawer(true); $("editor").open = true; }
+  return true;
+}
+
+let ac = null, osc = null, gn = null, master = null, keepAlive = null;
+function silentWav(){
+  const sr = 8000, n = 800, buf = new ArrayBuffer(44 + n*2), v = new DataView(buf);
+  const w = (o,s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4,36+n*2,true); w(8,"WAVEfmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,n*2,true);
+  let bin = ""; const u = new Uint8Array(buf); for (let i=0;i<u.length;i++) bin += String.fromCharCode(u[i]);
+  return "data:audio/wav;base64," + btoa(bin);
+}
+function initAudio(){
+  try {
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      ac = new AC(); master = ac.createGain(); master.gain.value = $("vol").value / 100 * 0.5;
+      gn = ac.createGain(); gn.gain.value = 0; osc = ac.createOscillator(); osc.type = "triangle"; osc.frequency.value = 300;
+      osc.connect(gn); gn.connect(master); master.connect(ac.destination); osc.start();
+      try { keepAlive = new Audio(silentWav()); keepAlive.loop = true; keepAlive.setAttribute("playsinline",""); keepAlive.play().catch(()=>{}); } catch(e){}
+    }
+    if (ac.state !== "running") ac.resume();
+  } catch(e){}
+}
+function note(v, len){
+  if (!soundOn || !ac || ac.state !== "running") return;
+  const t = ac.currentTime;
+  osc.frequency.setTargetAtTime(160 + (v / N) * 1240, t, 0.003);
+  gn.gain.cancelScheduledValues(t); gn.gain.setTargetAtTime(1, t, 0.004); gn.gain.setTargetAtTime(0, t + (len || 0.035), 0.03);
+}
+
+let W = 0, H = 0;
+function resize(){
+  const d = Math.min(devicePixelRatio || 1, 2);
+  W = cv.width = Math.round(innerWidth * d); H = cv.height = Math.round(innerHeight * d);
+  fitPhoto(); draw();
+}
+function draw(){
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  if (view === "bars") drawBars();
+  else if (view === "photo") drawPhoto();
+  else drawCircle();
+}
+function drawBars(){
+  const n = N, bw = W / n, gap = bw > 4 ? 1 : 0, top = 0.14 * H, hmax = H - top;
+  for (let i = 0; i < n; i++){
+    const v = arr[i], h = v / n * hmax, x = i * bw;
+    ctx.fillStyle = (sweep >= 0 && i <= sweep) ? "#00ff6a" : pal[v];
+    ctx.fillRect(x, H - h, bw - gap, h);
+  }
+  ctx.lineWidth = Math.max(1.5, Math.min(bw * 0.3, 3));
+  for (let k = 0; k < hiN; k++){
+    const i = hi[k], h = arr[i] / n * hmax, inset = ctx.lineWidth / 2;
+    ctx.strokeStyle = dark[arr[i]];
+    ctx.strokeRect(i * bw + inset, H - h + inset, Math.max(1, bw - gap - ctx.lineWidth), h - inset);
+  }
+}
+// Photo mode: the picture is cut into N strips and each array value picks which strip goes in a slot.
+function fitPhoto(){
+  if (!photo) return;
+  photoCv = document.createElement("canvas");
+  photoCv.width = W; photoCv.height = H;
+  const c = photoCv.getContext("2d");
+  const s = Math.max(W / photo.width, H / photo.height);
+  const w = photo.width * s, h = photo.height * s;
+  c.drawImage(photo, (W - w) / 2, (H - h) / 2, w, h);
+  buildMap();
+}
+function buildMap(){
+  stripOf = new Int32Array(N + 1);
+  for (let v = 1; v <= N; v++) stripOf[v] = v - 1;
+  if (!photoCv || $("pmode").value !== "bright") return;
+  const rows = $("porient").value === "rows";
+  const tiny = document.createElement("canvas");
+  tiny.width = rows ? 1 : N; tiny.height = rows ? N : 1;
+  const tc = tiny.getContext("2d");
+  tc.drawImage(photoCv, 0, 0, tiny.width, tiny.height);
+  const px = tc.getImageData(0, 0, tiny.width, tiny.height).data, lum = [];
+  for (let i = 0; i < N; i++) lum.push(0.299 * px[i*4] + 0.587 * px[i*4+1] + 0.114 * px[i*4+2]);
+  const order = lum.map((_, i) => i).sort((a, b) => lum[a] - lum[b]);
+  for (let r = 0; r < N; r++) stripOf[r + 1] = order[r];
+}
+function drawPhoto(){
+  if (!photoCv) {
+    ctx.fillStyle = "#fff"; ctx.font = "600 " + 16 * (W / 390) + "px system-ui,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Upload a photo in settings", W / 2, H / 2);
+    return;
+  }
+  const rows = $("porient").value === "rows", len = rows ? H : W, side = rows ? W : H;
+  const edge = k => Math.floor(k * len / N);
+  for (let i = 0; i < N; i++){
+    const s = stripOf[arr[i]], d0 = edge(i), dl = Math.max(1, edge(i + 1) - d0), s0 = edge(s), sl = Math.max(1, edge(s + 1) - s0);
+    if (rows) ctx.drawImage(photoCv, 0, s0, side, sl, 0, d0, side, dl);
+    else ctx.drawImage(photoCv, s0, 0, sl, side, d0, 0, dl, side);
+  }
+  if (sweep >= 0) {
+    ctx.fillStyle = "rgba(0,255,106,0.22)";
+    if (rows) ctx.fillRect(0, 0, W, edge(sweep + 1)); else ctx.fillRect(0, 0, edge(sweep + 1), H);
+  }
+  ctx.strokeStyle = "rgba(0,0,0,0.75)";
+  ctx.lineWidth = Math.max(1.5, Math.min(len / N * 0.3, 3));
+  for (let k = 0; k < hiN; k++){
+    const d0 = edge(hi[k]), dl = Math.max(1, edge(hi[k] + 1) - d0);
+    if (rows) ctx.strokeRect(1, d0 + 1, W - 2, dl - 1); else ctx.strokeRect(d0 + 1, 1, dl - 1, H - 2);
+  }
+}
+function drawCircle(){
+  const n = N, cx = W / 2, cy = H / 2 + H * 0.04, R = Math.min(W, H) * 0.46, step = 6.2832 / n;
+  for (let i = 0; i < n; i++){
+    const a0 = i * step - 1.5708, a1 = a0 + step + 0.012;
+    ctx.fillStyle = (sweep >= 0 && i <= sweep) ? "#00ff6a" : pal[arr[i]];
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a1); ctx.fill();
+  }
+  ctx.lineWidth = 2;
+  for (let k = 0; k < hiN; k++){
+    const a0 = hi[k] * step - 1.5708;
+    ctx.strokeStyle = dark[arr[hi[k]]];
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + step + 0.012); ctx.closePath(); ctx.stroke();
+  }
+}
+const statEl = $("stat");
+function stats(force){ if (force || (frameNo & 3) === 0) statEl.textContent = reads.toLocaleString() + " comparisons · " + writes.toLocaleString() + " writes"; }
+
+function opsPerFrame(){ const s = +$("speed").value / 100; return Math.max(0.05, Math.pow(10, s * 4 - 1.3)); }
+function speedLabel(){ const o = opsPerFrame() * 60; $("spLab").textContent = o < 1000 ? Math.round(o) + "/s" : (o/1000).toFixed(o < 10000 ? 1 : 0) + "k/s"; }
+function kick(){ if (!raf) raf = requestAnimationFrame(loop); }
+function loop(){
+  raf = 0; frameNo++;
+  hiN = 0;
+  if (playing) stepOps();
+  else if (finished && sweep < N - 1) stepSweep();
+  draw(); stats(!playing);
+  if (playing || (finished && sweep < N - 1)) kick();
+}
+function stepOps(){
+  acc += opsPerFrame();
+  let steps = Math.floor(acc); acc -= steps;
+  let lv = 0;
+  while (steps-- > 0 && opIdx < opLen){
+    const t = ops[opIdx], i = ops[opIdx+1], v = ops[opIdx+2]; opIdx += 3;
+    if (t === 0) { reads++; lv = arr[i]; } else { writes++; arr[i] = v; lv = v; }
+    if (hiN < hi.length) hi[hiN++] = i;
+  }
+  if (lv) note(lv);
+  if (opIdx >= opLen) { playing = false; finished = true; sweep = -1; hiN = 0; setPlayUI("Run"); }
+}
+function stepSweep(){
+  const per = Math.max(1, Math.ceil(N / 120));
+  sweep = Math.min(N - 1, sweep + per); note(arr[sweep], 0.03);
+  if (sweep >= N - 1) { setPlayUI("Again"); try { navigator.vibrate && navigator.vibrate(15); } catch(e){} }
+}
+
+function openDrawer(o){ $("drawer").classList.toggle("open", o); $("menu").setAttribute("aria-expanded", o); }
+$("menu").onclick = () => openDrawer(!$("drawer").classList.contains("open"));
+function toggle(){
+  initAudio();
+  if (playing) { playing = false; setPlayUI("Resume"); return; }
+  if (finished && sweep >= N - 1) makeArray();
+  if (finished) return;
+  if (!ops || opLen === 0) { if (!prepare()) return; }
+  hasRun = true; $("hint").style.display = "none"; openDrawer(false);
+  playing = true; setPlayUI("Pause"); kick();
+}
+$("play").onclick = toggle;
+cv.onclick = () => { if ($("drawer").classList.contains("open")) openDrawer(false); else toggle(); };
+$("shuf").onclick = () => makeArray();
+$("shape").onchange = () => makeArray();
+$("n").oninput = e => { N = +e.target.value; $("nlab").textContent = N; makeArray(); };
+$("speed").oninput = speedLabel;
+$("vol").oninput = e => { $("vLab").textContent = e.target.value; if (master) master.gain.value = e.target.value / 100 * 0.5; };
+$("snd").onclick = () => { soundOn = !soundOn; $("snd").setAttribute("aria-pressed", soundOn); $("sndWave").style.display = soundOn ? "" : "none"; if (soundOn) { initAudio(); setTimeout(() => note(N * 0.6, 0.12), 30); } };
+function setView(v){
+  view = v;
+  for (const x of $("view").children) x.setAttribute("aria-pressed", x.dataset.v === v);
+  draw();
+}
+$("view").onclick = e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.v === "photo" && !photo) { $("file").click(); return; }
+  setView(b.dataset.v);
+};
+$("upload").onclick = () => $("file").click();
+$("file").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const img = new Image(), url = URL.createObjectURL(f);
+  img.onload = () => {
+    photo = img; URL.revokeObjectURL(url);
+    fitPhoto(); setView("photo");
+    if (!playing) makeArray();
+  };
+  img.onerror = () => { errEl.textContent = "That file couldn't be read as an image."; };
+  img.src = url;
+};
+$("pmode").onchange = $("porient").onchange = () => { buildMap(); draw(); };
+codeEl.oninput = () => { customCode = codeEl.value; store.set("sortlab.custom", customCode); };
+$("useCustom").onclick = () => { customCode = codeEl.value; store.set("sortlab.custom", customCode); setAlgo("custom"); toggle(); };
+$("reset").onclick = () => { customCode = CUSTOM_DEFAULT; codeEl.value = customCode; store.del("sortlab.custom"); };
+codeEl.addEventListener("keydown", e => {
+  if (e.key === "Tab") { e.preventDefault(); codeEl.setRangeText("  ", codeEl.selectionStart, codeEl.selectionEnd, "end"); codeEl.dispatchEvent(new Event("input")); }
+});
+addEventListener("resize", resize);
+
+speedLabel(); setAlgo("bubble"); resize();
+</script>
+</body>
+</html>
