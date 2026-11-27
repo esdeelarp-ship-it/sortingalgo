@@ -196,11 +196,28 @@ for (let exp = 1; Math.floor(max / exp) > 0; exp *= 4) {
   for (let i = n - 1; i >= 0; i--) { const v = a[i]; out[--cnt[Math.floor(v / exp) % 4]] = v; }
   for (let i = 0; i < n; i++) a[i] = out[i];
 }`,
-bogo:`// Bogo-ish: random swaps until sorted (keep size small!)
-function isSorted() { for (let i = 1; i < n; i++) if (a[i-1] > a[i]) return false; return true; }
-while (!isSorted()) {
-  const i = Math.floor(Math.random() * n), j = Math.floor(Math.random() * n);
-  swap(i, j);
+bogo:`// Fake bogo sort. Real bogo sort would never finish, so this
+// shuffles wildly like it, then "gets lucky" and cheats its way to sorted.
+// It works at any size and any starting order.
+const m = Array.from(a);                       // private copy so we can look things up
+const target = m.slice().sort((x, y) => x - y);
+for (let round = 0; round < 4; round++) {      // the unlucky shuffles
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    swap(i, j); [m[i], m[j]] = [m[j], m[i]];
+  }
+}
+const order = Array.from({ length: n }, (_, i) => i);
+for (let i = n - 1; i > 0; i--) {              // the lucky part: random order
+  const j = Math.floor(Math.random() * (i + 1));
+  [order[i], order[j]] = [order[j], order[i]];
+}
+const done = new Array(n).fill(false);
+for (const p of order) {
+  let j = -1;
+  for (let k = 0; k < n; k++) if (!done[k] && m[k] === target[p]) { j = k; break; }
+  if (j !== p) { swap(p, j); [m[p], m[j]] = [m[j], m[p]]; }
+  done[p] = true;
 }`
 };
 const NAMES = {bubble:"Bubble sort",insertion:"Insertion sort",selection:"Selection sort",shell:"Shell sort",quick:"Quick sort",merge:"Merge sort",heap:"Heap sort",comb:"Comb sort",cocktail:"Cocktail shaker",radix:"Radix sort (LSD)",bogo:"Bogo (small n only)",custom:"★ Custom (my code)"};
@@ -213,7 +230,7 @@ while (i < n) {
 }`;
 
 
-const SHORT = {bubble:"Bubble",insertion:"Insertion",selection:"Selection",shell:"Shell",quick:"Quick",merge:"Merge",heap:"Heap",comb:"Comb",cocktail:"Cocktail",radix:"Radix",bogo:"Bogo",custom:"Custom"};
+const SHORT = {bubble:"Bubble",insertion:"Insertion",selection:"Selection",shell:"Shell",quick:"Quick",merge:"Merge",heap:"Heap",comb:"Comb",cocktail:"Cocktail",radix:"Radix",bogo:"Bogo (fake)",custom:"Custom"};
 const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d", {alpha:false});
 const codeEl = $("code"), errEl = $("err");
@@ -231,7 +248,6 @@ function setAlgo(k){
   algo = k; for (const c of padsEl.children) c.setAttribute("aria-pressed", c.dataset.k===k);
   $("nowName").textContent = SHORT[k] + " sort";
   codeEl.value = k === "custom" ? customCode : ALGOS[k];
-  if (k === "bogo" && N > 8) { N = 8; $("n").value = 8; $("nlab").textContent = 8; }
   makeArray();
 }
 padsEl.onclick = e => { const b = e.target.closest(".pad"); if (b) setAlgo(b.dataset.k); };
