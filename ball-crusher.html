@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scoop Ball Crusher</title>
+<style>
+  :root { --bg:#000; --fg:#e8e8e8; --line:#fff; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px system-ui,sans-serif; }
+  body { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:16px; box-sizing:border-box; }
+  canvas { width:min(92vw,80vh); height:min(92vw,80vh); max-width:720px; max-height:720px; }
+  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  button { background:#222; color:var(--fg); border:1px solid #555; border-radius:6px; padding:6px 14px; font:inherit; cursor:pointer; }
+  button:hover { background:#333; }
+  label { display:flex; gap:6px; align-items:center; }
+</style>
+</head>
+<body>
+<canvas id="c" width="720" height="720" aria-label="Scoop ball crusher simulation"></canvas>
+<div class="bar">
+  <span>Balls: <b id="count">1</b></span>
+  <label>Spin <input id="spin" type="range" min="0.3" max="4" step="0.1" value="1.6"></label>
+  <button id="reset">Reset</button>
+  <button id="pause">Pause</button>
+</div>
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const W = cv.width, C = W / 2, ARENA = W * 0.47;
+  const R = 120, THICK = 14, GAP = Math.PI * 0.4;   // scoop ring radius, thickness, opening
+  const BALL_R = 6, MAX = 500, SPEED = 320;
+  const HUES = [205, 58, 290, 15, 150, 230, 95];     // generation colors
+  const countEl = document.getElementById('count');
+  const spinEl = document.getElementById('spin');
+  let balls, angle, paused = false, last = 0;
+
+  function reset() {
+    angle = 0;
+    balls = [{ x: C - 60, y: C + 90, vx: SPEED * 0.7, vy: -SPEED * 0.7, gen: 0, cool: 0 }];
+  }
+
+  // Scoop: ring of radius R whose centre orbits the gear (at arena centre).
+  const ring = () => ({ x: C + R * Math.cos(angle), y: C + R * Math.sin(angle) });
+  // The opening faces away from the gear's direction of travel.
+  const inArc = a => {
+    // the gap is centred on the direction from the ring centre toward the gear
+    const d = Math.atan2(Math.sin(a - angle - Math.PI), Math.cos(a - angle - Math.PI));
+    return Math.abs(d) > GAP / 2;
+  };
+
+  function step(dt) {
+    const omega = +spinEl.value;
+    angle += omega * dt;
+    const rc = ring();
+    const born = [];
+    for (const b of balls) {
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.cool > 0) b.cool -= dt;
+
+      // arena wall
+      let dx = b.x - C, dy = b.y - C, d = Math.hypot(dx, dy);
+      if (d > ARENA - BALL_R) {
+        const nx = dx / d, ny = dy / d, dot = b.vx * nx + b.vy * ny;
+        if (dot > 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; }
+        if (dot > 0) { const j = (Math.random() - 0.5) * 0.7, c = Math.cos(j), s = Math.sin(j); [b.vx, b.vy] = [b.vx * c - b.vy * s, b.vx * s + b.vy * c]; } // jitter breaks periodic orbits
+        b.x = C + nx * (ARENA - BALL_R); b.y = C + ny * (ARENA - BALL_R);
+      }
+
+      // scoop arc
+      dx = b.x - rc.x; dy = b.y - rc.y; d = Math.hypot(dx, dy);
+      const reach = THICK / 2 + BALL_R;
+      if (Math.abs(d - R) < reach && inArc(Math.atan2(dy, dx))) {
+        const nx = dx / d, ny = dy / d;
+        const side = d > R ? 1 : -1;
+        const sx = nx * side, sy = ny * side;
+        // surface velocity (rotation about the gear)
+        const px = b.x - C, py = b.y - C;
+        const svx = -omega * py, svy = omega * px;
+        const rel = (b.vx - svx) * sx + (b.vy - svy) * sy;
+        if (rel < 0) { b.vx -= 2 * rel * sx; b.vy -= 2 * rel * sy; }
+        b.x = rc.x + nx * (R + side * reach); b.y = rc.y + ny * (R + side * reach);
+        if (b.cool <= 0 && balls.length + born.length < MAX) {
+          b.cool = 0.2; b.gen++;
+          const a = Math.atan2(b.vy, b.vx) + (Math.random() - 0.5) * 1.6;
+          const sp = Math.max(SPEED * 0.8, Math.hypot(b.vx, b.vy));
+          born.push({ x: b.x, y: b.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, gen: b.gen, cool: 0.35 });
+        }
+      }
+      // keep speed lively but bounded
+      const sp = Math.hypot(b.vx, b.vy);
+      if (sp > 1) { const t = Math.min(Math.max(sp, SPEED * 0.8), SPEED * 1.6) / sp; b.vx *= t; b.vy *= t; }
+    }
+    if (born.length) balls.push(...born);
+    countEl.textContent = balls.length;
+  }
+
+  function drawGear(x, y, r) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle * 2);
+    ctx.fillStyle = '#d8d8d8'; ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a0 = i / 16 * Math.PI * 2, a1 = (i + 0.5) / 16 * Math.PI * 2;
+      const rr = i % 2 ? r * 0.8 : r;
+      ctx.lineTo(Math.cos(a0) * rr, Math.sin(a0) * rr);
+      ctx.lineTo(Math.cos(a1) * rr, Math.sin(a1) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#666'; ctx.beginPath(); ctx.arc(0, 0, r * 0.3, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, W);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(C, C, ARENA, 0, 7); ctx.stroke();
+
+    const rc = ring();
+    ctx.strokeStyle = '#8a8a8a'; ctx.lineWidth = THICK; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(rc.x, rc.y, R, angle + Math.PI + GAP / 2, angle + Math.PI - GAP / 2 + Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#b5b5b5'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(rc.x, rc.y, R - 3, angle + Math.PI + GAP / 2 + 0.1, angle + Math.PI - GAP / 2 + Math.PI * 2 - 0.1); ctx.stroke();
+
+    drawGear(C, C, 20);
+
+    for (const b of balls) {
+      const h = HUES[b.gen % HUES.length];
+      const g = ctx.createRadialGradient(b.x - 2, b.y - 2, 1, b.x, b.y, BALL_R);
+      g.addColorStop(0, `hsl(${h} 90% 80%)`); g.addColorStop(1, `hsl(${h} 85% 42%)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, 7); ctx.fill();
+    }
+  }
+
+  function loop(t) {
+    const dt = Math.min((t - last) / 1000 || 0, 0.03); last = t;
+    if (!paused) { const n = 3; for (let i = 0; i < n; i++) step(dt / n); }
+    draw(); requestAnimationFrame(loop);
+  }
+
+  document.getElementById('reset').onclick = reset;
+  document.getElementById('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'Play' : 'Pause'; };
+  reset(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
