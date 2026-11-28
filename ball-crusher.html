@@ -36,6 +36,7 @@
   // arc A turns counter-clockwise, arc B clockwise, at different speeds
   const RATE_A = -1.248, START_A = 4.317, RATE_B = 1.751, START_B = 1.625;
   const BALL_R = 6, MAX = 1500, SPEED = 330, SPLIT = 4;
+  const ESCAPE = 0.04, SLIP = 0.25;                // chance a touch lets the ball slip through, and for how long (s)
   const REACH = THICK / 2 + BALL_R;
   const HUES = [215, 58, 290, 350, 170, 100, 25, 240];   // one colour per generation
 
@@ -57,7 +58,7 @@
     // the first ball starts outside the claws' reach (they extend 2R from the gear),
     // somewhere random near the wall, heading roughly toward the middle
     const ang = Math.random() * TAU, rad = 2 * R + 30 + Math.random() * (ARENA - BALL_R - 2 * R - 40);
-    const head = ang + Math.PI + (Math.random() - 0.5) * 0.8;
+    const head = ang + Math.PI + (Math.random() - 0.5) * 0.5;
     balls = [{ x: C + Math.cos(ang) * rad, y: C + Math.sin(ang) * rad,
                vx: Math.cos(head) * SPEED, vy: Math.sin(head) * SPEED, gen: 0, cool: 0 }];
   }
@@ -85,6 +86,7 @@
     for (const b of balls) {
       b.x += b.vx * dt; b.y += b.vy * dt;
       if (b.cool > 0) b.cool -= dt;
+      if (b.slip > 0) b.slip -= dt;
 
       // arena wall (a little random jitter stops a lone ball repeating the same path)
       let dx = b.x - C, dy = b.y - C, d = Math.hypot(dx, dy);
@@ -113,6 +115,9 @@
       // bounce off whichever arcs are touched; arcs push the ball with their own motion
       for (let i = 0; i < 2; i++) {
         if (!hit[i]) continue;
+        // easier escape: a ball caught inside a claw sometimes slips out through it
+        if (b.slip > 0) continue;
+        if (dist[i] < R && Math.random() < ESCAPE) { b.slip = SLIP; continue; }
         const a = arcs[i], ex = b.x - a.x, ey = b.y - a.y, e = dist[i] || 1;
         const side = e > R ? 1 : -1, sx = ex / e * side, sy = ey / e * side;
         const svx = -a.w * (b.y - C), svy = a.w * (b.x - C);          // arc surface velocity here
@@ -122,12 +127,12 @@
       }
 
       if (pinched && b.cool <= 0) {
-        b.gen++; b.cool = 3;
+        b.gen++; b.cool = 1;
         fx.push({ x: b.x, y: b.y, age: 0 });
         for (let k = 1; k < SPLIT && balls.length + born.length < MAX; k++) {
           const ang = Math.random() * TAU;
           born.push({ x: b.x + Math.cos(ang) * 3, y: b.y + Math.sin(ang) * 3,
-                      vx: Math.cos(ang) * SPEED, vy: Math.sin(ang) * SPEED, gen: b.gen, cool: 3 });
+                      vx: Math.cos(ang) * SPEED, vy: Math.sin(ang) * SPEED, gen: b.gen, cool: 1 });
         }
       }
     }
