@@ -8,7 +8,7 @@
   :root { --bg:#000; --fg:#e8e8e8; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px system-ui,sans-serif; }
   body { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:16px; box-sizing:border-box; }
-  canvas { width:min(92vw,80vh); height:min(92vw,80vh); max-width:720px; max-height:720px; }
+  canvas { display:block; flex:none; width:560px; height:560px; }
   .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; }
   button { background:#222; color:var(--fg); border:1px solid #555; border-radius:6px; padding:6px 14px; font:inherit; cursor:pointer; }
   button:hover { background:#333; }
@@ -31,13 +31,20 @@
   // Two C-shaped arcs. Each is a piece of a circle of radius R that passes through the
   // gear at the arena centre, and each swings rigidly around the gear. They turn at
   // different rates, so they cross like scissors, close into a full ring, and re-open.
-  const R = 120, THICK = 14, SPAN = 3.3;          // ring radius, thickness, arc length (rad)
+  const R = 100, THICK = 12, SPAN = 3.3;          // ring radius, thickness, arc length (rad)
   // turn rates and starting angles measured frame by frame from the video (rad/s, rad):
   // arc A turns counter-clockwise, arc B clockwise, at different speeds
   const RATE_A = -1.248, START_A = 4.317, RATE_B = 1.751, START_B = 1.625;
   const BALL_R = 6, MAX = 1500, SPEED = 220, SPLIT = 4;
   const REACH = THICK / 2 + BALL_R;
   const HUES = [215, 58, 290, 350, 170, 100, 25, 240];   // one colour per generation
+
+  // keep the canvas an exact square whatever the window or host frame does
+  function fitCanvas() {
+    const s = Math.max(200, Math.min(720, window.innerWidth - 32, window.innerHeight - 90));
+    cv.style.width = s + 'px'; cv.style.height = s + 'px';
+  }
+  window.addEventListener('resize', fitCanvas); fitCanvas();
 
   const countEl = document.getElementById('count');
   const speedEl = document.getElementById('spin');
