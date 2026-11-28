@@ -31,8 +31,10 @@
   // Two C-shaped arcs. Each is a piece of a circle of radius R that passes through the
   // gear at the arena centre, and each swings rigidly around the gear. They turn at
   // different rates, so they cross like scissors, close into a full ring, and re-open.
-  const R = 118, THICK = 14, SPAN = 3.3;          // ring radius, thickness, arc length (rad)
-  const SPIN = 1.0, OPEN = 1.5;                    // common turn rate, scissor rate (rad/s)
+  const R = 120, THICK = 14, SPAN = 3.3;          // ring radius, thickness, arc length (rad)
+  // turn rates and starting angles measured frame by frame from the video (rad/s, rad):
+  // arc A turns counter-clockwise, arc B clockwise, at different speeds
+  const RATE_A = -1.248, START_A = 4.317, RATE_B = 1.751, START_B = 1.625;
   const BALL_R = 6, MAX = 1500, SPEED = 220, SPLIT = 4;
   const REACH = THICK / 2 + BALL_R;
   const HUES = [215, 58, 290, 350, 170, 100, 25, 240];   // one colour per generation
@@ -49,9 +51,9 @@
   }
 
   function poseArcs(speed) {
-    // arc A starts pointing up, arc B pointing down: the "3" shape in the video
-    arcs[0].th = (SPIN + OPEN) * t - Math.PI / 2; arcs[0].w = (SPIN + OPEN) * speed;
-    arcs[1].th = (SPIN - OPEN) * t + Math.PI / 2; arcs[1].w = (SPIN - OPEN) * speed;
+    // they start as the "3" shape (A pointing up, B pointing down)
+    arcs[0].th = START_A + RATE_A * t; arcs[0].w = RATE_A * speed;
+    arcs[1].th = START_B + RATE_B * t; arcs[1].w = RATE_B * speed;
     for (const a of arcs) {
       a.x = C + R * Math.cos(a.th); a.y = C + R * Math.sin(a.th);
       a.g = a.th + Math.PI;                       // angle (seen from ring centre) of the gear
@@ -89,12 +91,12 @@
       for (let i = 0; i < 2; i++) {
         const a = arcs[i], ex = b.x - a.x, ey = b.y - a.y, e = Math.hypot(ex, ey);
         dist[i] = e;
-        hit[i] = Math.abs(e - R) < REACH && solid(a, Math.atan2(ey, ex));
+        hit[i] = Math.abs(e - R) < REACH + 2 && solid(a, Math.atan2(ey, ex));
       }
 
-      // crushed: touching one arc while inside the other arc's ring (caught between the blades)
-      const pinched = (hit[0] && dist[1] < R + REACH) || (hit[1] && dist[0] < R + REACH) ||
-                       (dist[0] < R - REACH && dist[1] < R - REACH);   // or inside the overlap of both rings
+      // crushed only when both arcs close on the ball at the same time (the scissor shear),
+      // not when it merely touches one of them
+      const pinched = hit[0] && hit[1];
 
       // bounce off whichever arcs are touched; arcs push the ball with their own motion
       for (let i = 0; i < 2; i++) {
@@ -108,12 +110,12 @@
       }
 
       if (pinched && b.cool <= 0) {
-        b.gen++; b.cool = 0.5;
+        b.gen++; b.cool = 3;
         fx.push({ x: b.x, y: b.y, age: 0 });
         for (let k = 1; k < SPLIT && balls.length + born.length < MAX; k++) {
           const ang = Math.random() * TAU;
           born.push({ x: b.x + Math.cos(ang) * 3, y: b.y + Math.sin(ang) * 3,
-                      vx: Math.cos(ang) * SPEED, vy: Math.sin(ang) * SPEED, gen: b.gen, cool: 0.5 });
+                      vx: Math.cos(ang) * SPEED, vy: Math.sin(ang) * SPEED, gen: b.gen, cool: 3 });
         }
       }
     }
