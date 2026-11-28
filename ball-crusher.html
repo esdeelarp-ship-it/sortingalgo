@@ -35,7 +35,7 @@
   // turn rates and starting angles measured frame by frame from the video (rad/s, rad):
   // arc A turns counter-clockwise, arc B clockwise, at different speeds
   const RATE_A = -1.248, START_A = 4.317, RATE_B = 1.751, START_B = 1.625;
-  const BALL_R = 6, MAX = 1500, SPEED = 220, SPLIT = 4;
+  const BALL_R = 6, MAX = 1500, SPEED = 330, SPLIT = 4;
   const REACH = THICK / 2 + BALL_R;
   const HUES = [215, 58, 290, 350, 170, 100, 25, 240];   // one colour per generation
 
@@ -54,7 +54,12 @@
 
   function reset() {
     t = 0; fx = [];
-    balls = [{ x: C - 250, y: C - 60, vx: SPEED * 0.95, vy: SPEED * 0.3, gen: 0, cool: 0 }];
+    // the first ball starts outside the claws' reach (they extend 2R from the gear),
+    // somewhere random near the wall, heading roughly toward the middle
+    const ang = Math.random() * TAU, rad = 2 * R + 30 + Math.random() * (ARENA - BALL_R - 2 * R - 40);
+    const head = ang + Math.PI + (Math.random() - 0.5) * 0.8;
+    balls = [{ x: C + Math.cos(ang) * rad, y: C + Math.sin(ang) * rad,
+               vx: Math.cos(head) * SPEED, vy: Math.sin(head) * SPEED, gen: 0, cool: 0 }];
   }
 
   function poseArcs(speed) {
